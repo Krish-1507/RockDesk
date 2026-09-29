@@ -6,7 +6,7 @@ const EnvSchema = z.object({
   SUPABASE_SECRET_KEY: z.string().min(10),
   GROQ_API_KEY: z.string().min(5).optional(),
   GROQ_FALLBACK_API_KEY: z.string().min(5).optional(),
-  LLM_MODEL: z.string().min(1).default("openai/gpt-oss-120b"),
+  LLM_MODEL: z.string().min(1).default("qwen/qwen3.8-27b"),
   APP_TIMEZONE_DEFAULT: z.string().min(1).default("Asia/Kolkata"),
   AI_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(20),
   CORS_ORIGINS: z.string().default("http://localhost:3000"),

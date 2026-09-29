@@ -81,7 +81,7 @@ SUPABASE_PUBLISHABLE_KEY
 SUPABASE_SECRET_KEY
 GROQ_API_KEY                  # primary
 GROQ_FALLBACK_API_KEY         # optional; automatic failover when the primary errors
-LLM_MODEL                     # default: openai/gpt-oss-120b
+LLM_MODEL                     # default: qwen/qwen3.8-27b
 APP_TIMEZONE_DEFAULT          # default: Asia/Kolkata
 AI_RATE_LIMIT_PER_MINUTE      # default: 20
 CORS_ORIGINS                  # comma-separated web origins
@@ -123,27 +123,39 @@ npm run build --workspace=@chat-to-ticket/web  # production Next build, passes
 npm run build --workspace=@chat-to-ticket/api  # production tsc build, passes
 ```
 
-Live runs against production Supabase + real Groq (`openai/gpt-oss-120b`): complete ticket (Priya/Friday→2026-10-02/High), missing-assignee loop, ambiguous-Rahul disambiguation + resolution, Hindi/Hinglish/Spanish/Arabic/Chinese tickets, `hello` (no ticket), `forget it` (draft discarded), admin login → search/filter/patch/activity, user directory search. API `/health` returns `{status:"ok"}`.
+Live runs against production Supabase + real Groq (`qwen/qwen3.8-27b`): complete ticket (Priya/Friday→2026-10-02/High), missing-assignee loop, ambiguous-Rahul disambiguation + resolution, Hindi/Hinglish/Spanish/Arabic/Chinese tickets, `hello` (no ticket), `forget it` (draft discarded), admin login → search/filter/patch/activity, user directory search. API `/health` returns `{status:"ok"}`.
 
-## Deploy
+## Deploy (Vercel multi-service, single domain)
 
-Two Vercel projects from this repo (per `docs/Architecture.md`):
+One Vercel project from this repo, configured by the root `vercel.json`:
 
-**API project** — Root Directory `apps/api`
-- Install Command: `npm install --prefix ../..`
-- Build Command: `npm --prefix ../.. run build --workspace=@chat-to-ticket/shared && npm run build`
-- Routes: `api/index.ts` becomes the serverless Express function automatically.
-- Env: all server-only vars above (set `CORS_ORIGINS` to the web URL).
+- service **`api`** (Express, `apps/api`) — public on `/api/*`
+- service **`web`** (Next.js, `apps/web`) — public on `/*` (catch-all)
 
-**Web project** — Root Directory `apps/web` (framework auto-detected)
-- Env: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_API_BASE_URL=<api-vercel-url>`.
-- Deploy/redeploy web **after** the API URL is known (it is inlined at build time).
+No `bindings` are declared, deliberately: the browser calls the API over the public same-origin `/api/*` route, and no server-side function calls another service. Bindings are for function-to-function calls at runtime — there are none here.
+
+Paste the `.env` contents (or set vars individually) in the Vercel dashboard → Environments: Production and Preview:
+
+```text
+# api service (server-only)
+SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY
+GROQ_API_KEY, GROQ_FALLBACK_API_KEY
+LLM_MODEL=qwen/qwen3.8-27b
+APP_TIMEZONE_DEFAULT=Asia/Kolkata
+AI_RATE_LIMIT_PER_MINUTE=20
+CORS_ORIGINS=https://<your-domain>
+# web service (browser-visible)
+NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+# NOTE: do NOT set NEXT_PUBLIC_API_BASE_URL — unset means same-origin /api/*
+```
 
 **Supabase** — `supabase link`, `supabase db push`, seed, create + link the admin Auth user, keep demo credentials active ≥14 days.
 
+Standalone alternative (two Vercel projects): API with Root Directory `apps/api`, Install `npm install --prefix ../..`, Build `npm --prefix ../.. run build --workspace=@chat-to-ticket/shared && npm run build`; Web with Root Directory `apps/web` plus `NEXT_PUBLIC_API_BASE_URL=<api-url>`.
+
 ## Assumptions
 
-- Groq is the LLM provider (keys supplied); default model `openai/gpt-oss-120b` (verified JSON mode + multilingual; `llama-3.3-70b-versatile` has been retired by Groq).
+- Groq is the LLM provider (keys supplied); default model `qwen/qwen3.8-27b` (verified JSON mode + multilingual on the live API; `llama-3.3-70b-versatile` has been retired by Groq).
 - Chat is public; only `/admin` requires login (per the brief's weighting).
 - English-normalised titles; assistant replies in the user's language (Hinglish preserved as Hinglish).
 - Bare weekday "Friday" = the upcoming Friday; "the 4th" = nearest future 4th, confirmed before creation.

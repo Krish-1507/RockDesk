@@ -1,0 +1,29 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "api": {
+      "root": "apps/api",
+      "framework": "express",
+      "installCommand": "npm install --prefix ../..",
+      "buildCommand": "npm --prefix ../.. run build --workspace=@chat-to-ticket/shared && npm run build"
+    },
+    "web": {
+      "root": "apps/web",
+      "framework": "nextjs"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": {
+        "service": "api"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "web"
+      }
+    }
+  ]
+}

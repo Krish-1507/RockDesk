@@ -18,8 +18,11 @@ export class ApiError extends Error {
 }
 
 function apiBase(): string {
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
-  if (!base) throw new Error("Missing NEXT_PUBLIC_API_BASE_URL.");
+  // Single-domain deploy (Vercel services rewrites /api/* to the api service):
+  // leave NEXT_PUBLIC_API_BASE_URL unset for same-origin calls.
+  // Local dev sets it to http://localhost:4000 (see apps/web/.env.local).
+  const base = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "").trim();
+  if (!base) return "";
   return base.replace(/\/$/, "");
 }
 
