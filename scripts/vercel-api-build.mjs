@@ -4,3 +4,4 @@ import { findRepoRoot } from "./repo-root.mjs";
 const root = findRepoRoot();
 execSync("npm run build --workspace=@chat-to-ticket/shared", { cwd: root, stdio: "inherit" });
 execSync("npm run build --workspace=@chat-to-ticket/api", { cwd: root, stdio: "inherit" });
+execSync("npm run bundle --workspace=@chat-to-ticket/api", { cwd: root, stdio: "inherit" });
