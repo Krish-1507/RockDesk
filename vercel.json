@@ -4,7 +4,7 @@
     "api": {
       "root": "apps/api",
       "framework": "express",
-      "entrypoint": "api/index.ts",
+      "entrypoint": "api/index.mjs",
       "installCommand": "for c in ./scripts/vercel-api-install.mjs ../scripts/vercel-api-install.mjs ../../scripts/vercel-api-install.mjs; do if [ -f \"$c\" ]; then node \"$c\"; break; fi; done",
       "buildCommand": "for c in ./scripts/vercel-api-build.mjs ../scripts/vercel-api-build.mjs ../../scripts/vercel-api-build.mjs; do if [ -f \"$c\" ]; then node \"$c\"; break; fi; done"
     },
