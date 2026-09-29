@@ -8,3 +8,5 @@ out/
 *.pem
 supabase/.temp/
 .DS_Store
+
+*.log
