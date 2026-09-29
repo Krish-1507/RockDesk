@@ -1,0 +1,117 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #f5f3ee;
+  --color-surface: #fbfaf7;
+  --color-surface-strong: #efece5;
+  --color-ink: #151512;
+  --color-ink-soft: #4e4c46;
+  --color-ink-muted: #77736a;
+  --color-border: #d8d3c9;
+  --color-border-strong: #bdb7ac;
+  --color-accent: #f0644e;
+  --color-accent-dark: #c94a37;
+  --color-accent-soft: #fbe1db;
+  --color-focus: #2f5bea;
+  --color-success: #3e7650;
+  --color-warning: #a26724;
+  --color-danger: #b83c34;
+  --radius-button: 10px;
+  --radius-input: 10px;
+  --radius-card: 14px;
+  --radius-dialog: 16px;
+  --font-sans: "Geist", "Geist Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+}
+
+html {
+  background: var(--color-background);
+  color: var(--color-ink);
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 22px;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--color-accent-soft);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Restrained motion: transform + opacity only, respects reduced motion. */
+@keyframes message-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes typing-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
+.animate-message-in {
+  animation: message-in 220ms ease-out both;
+}
+
+.animate-card-in {
+  animation: card-in 260ms ease-out both;
+}
+
+.typing-dot {
+  animation: typing-dot 1.1s ease-in-out infinite;
+}
+
+.typing-dot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.typing-dot:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-message-in,
+  .animate-card-in,
+  .typing-dot {
+    animation: none;
+  }
+
+  * {
+    transition-duration: 0.01ms !important;
+  }
+}

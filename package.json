@@ -1,0 +1,25 @@
+{
+  "name": "chat-to-ticket",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Chat-to-Ticket: turn natural-language chat into clean, trackable tickets.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace=@chat-to-ticket/api",
+    "dev:web": "npm run dev --workspace=@chat-to-ticket/web",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspace=@chat-to-ticket/api",
+    "test:api": "npm run test --workspace=@chat-to-ticket/api"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
