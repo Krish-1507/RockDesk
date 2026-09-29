@@ -52,6 +52,7 @@ export interface DraftView {
   title: string | null;
   description: string | null;
   assigneeId: string | null;
+  assigneeName: string | null;
   dueDate: string | null;
   priority: string;
   missingFields: string[];

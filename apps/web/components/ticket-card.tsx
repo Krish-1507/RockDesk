@@ -1,16 +1,12 @@
-import Link from "next/link";
-import { ArrowRight } from "@phosphor-icons/react";
-import { PriorityPill, StatusPill } from "./pills";
+"use client";
 
-export interface TicketCardData {
-  id: string;
-  ticketNumber: number;
-  title: string;
-  assignee: { name: string } | null;
-  dueDate: string | null;
-  priority: string;
-  status: string;
-}
+import Link from "next/link";
+import { motion } from "motion/react";
+import type { TicketCardData } from "./ticket-card-data";
+import { PriorityPill, StatusPill } from "./pills";
+import { ArrowRight } from "@phosphor-icons/react";
+
+export type { TicketCardData };
 
 function formatDue(iso: string | null): string {
   if (!iso) return "No deadline";
@@ -22,7 +18,7 @@ export default function TicketCard({ ticket, linkToAdmin }: { ticket: TicketCard
   const inner = (
     <>
       <div className="flex items-center gap-2">
-        <span className="font-mono text-[12px] font-semibold text-[#C94A37]">#{ticket.ticketNumber}</span>
+        <span className="font-mono text-[13px] font-semibold text-[#C94A37]">#{ticket.ticketNumber}</span>
         <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#77736A]">Ticket created</span>
         <span className="ml-auto flex gap-1.5">
           <StatusPill status={ticket.status} />
@@ -49,14 +45,21 @@ export default function TicketCard({ ticket, linkToAdmin }: { ticket: TicketCard
   );
 
   const cls =
-    "animate-card-in block rounded-[14px] border border-[#BDB7AC] border-l-4 border-l-[#F0644E] bg-[#FBFAF7] p-5 transition-colors duration-150 hover:border-[#F0644E]";
+    "block rounded-[14px] border border-[#BDB7AC] border-l-4 border-l-[#F0644E] bg-[#FBFAF7] p-5 transition-colors duration-150 hover:border-[#F0644E]";
+
+  const animated = (
+    <motion.div
+      initial={{ opacity: 0, y: 10, scale: 0.995 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+      className={cls}
+    >
+      {inner}
+    </motion.div>
+  );
 
   if (linkToAdmin) {
-    return (
-      <Link href={`/admin/${ticket.id}`} className={cls}>
-        {inner}
-      </Link>
-    );
+    return <Link href={`/admin/${ticket.id}`}>{animated}</Link>;
   }
-  return <div className={cls}>{inner}</div>;
+  return animated;
 }

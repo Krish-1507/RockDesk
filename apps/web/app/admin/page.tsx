@@ -22,6 +22,15 @@ function formatDue(iso: string | null): string {
   });
 }
 
+function isOverdue(t: { dueDate: string | null; status: string }): boolean {
+  if (!t.dueDate || t.status === "Resolved") return false;
+  return t.dueDate < new Date().toISOString().slice(0, 10);
+}
+
+function formatUpdated(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+}
+
 export default function AdminListPage(): React.JSX.Element {
   const { ready } = useAdminGuard();
   const [items, setItems] = useState<TicketListItem[]>([]);
@@ -149,7 +158,7 @@ export default function AdminListPage(): React.JSX.Element {
           ) : (
             <>
               <div className="overflow-x-auto rounded-[14px] border border-[#D8D3C9] bg-[#FBFAF7]">
-                <table className="w-full min-w-[760px] border-collapse text-left">
+                <table className="w-full min-w-[820px] border-collapse text-left">
                   <thead>
                     <tr className="border-b border-[#D8D3C9] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#77736A]">
                       <th className="px-5 py-3">Ticket</th>
@@ -157,6 +166,7 @@ export default function AdminListPage(): React.JSX.Element {
                       <th className="px-4 py-3">Assignee</th>
                       <th className="px-4 py-3">Priority</th>
                       <th className="px-4 py-3">Due</th>
+                      <th className="px-4 py-3">Updated</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -171,7 +181,8 @@ export default function AdminListPage(): React.JSX.Element {
                         <td className="px-4 py-3.5"><StatusPill status={t.status} /></td>
                         <td className="px-4 py-3.5 text-[13px]">{t.assignee?.name ?? <span className="text-[#77736A]">Unassigned</span>}</td>
                         <td className="px-4 py-3.5"><PriorityPill priority={t.priority} /></td>
-                        <td className="px-4 py-3.5 font-mono text-[12px]">{formatDue(t.dueDate)}</td>
+                        <td className={`px-4 py-3.5 font-mono text-[12px] ${isOverdue(t) ? "font-semibold text-[#B83C34]" : ""}`}>{formatDue(t.dueDate)}</td>
+                        <td className="px-4 py-3.5 font-mono text-[12px] text-[#77736A]">{formatUpdated(t.updatedAt)}</td>
                       </tr>
                     ))}
                   </tbody>

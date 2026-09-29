@@ -4,6 +4,7 @@ import { SendMessageSchema } from "../schemas/http.js";
 import { getSupabaseAdmin } from "../config/supabase.js";
 import { createSession, getSession, listMessages } from "../repositories/chat-repository.js";
 import { generateSessionToken, hashSessionToken } from "../utils/tokens.js";
+import { getUserById } from "../repositories/user-repository.js";
 import { errorBody, ok, AppError } from "../utils/errors.js";
 import { logRequest } from "../middleware/request-id.js";
 import { processMessage } from "../services/chat/chat-service.js";
@@ -54,6 +55,12 @@ export async function sendChatMessage(req: Request, res: Response): Promise<void
       timezone: parsed.data.timezone,
       clientMessageId: parsed.data.clientMessageId,
     });
+    // Resolve the pending assignee's display name so the UI never shows an opaque id.
+    let assigneeName: string | null = null;
+    if (outcome.draft?.assigneeId) {
+      const user = await getUserById(db, outcome.draft.assigneeId);
+      assigneeName = user?.name ?? null;
+    }
     logRequest(req, 200, { operation: "chat-message" });
     res.status(200).json(
       ok({
@@ -69,6 +76,7 @@ export async function sendChatMessage(req: Request, res: Response): Promise<void
               title: outcome.draft.title,
               description: outcome.draft.description,
               assigneeId: outcome.draft.assigneeId,
+              assigneeName,
               dueDate: outcome.draft.dueDate,
               priority: outcome.draft.priority,
               missingFields: outcome.draft.missingFields,

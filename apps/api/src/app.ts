@@ -34,6 +34,11 @@ export function createApp(): express.Express {
     res.status(200).json({ status: "ok" });
   });
 
+  // Public smoke test routed through the same path prefix as everything else.
+  app.get("/api/health", (_req: Request, res: Response) => {
+    res.status(200).json({ status: "ok" });
+  });
+
   app.use("/api/chat", chatRouter);
   app.use("/api/tickets", ticketRouter);
   app.use("/api/users", userRouter);

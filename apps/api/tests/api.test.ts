@@ -41,6 +41,10 @@ describe("health", () => {
   it("returns ok without auth", async () => {
     await request(app).get("/health").expect(200, { status: "ok" });
   });
+
+  it("exposes a public smoke test under the /api prefix", async () => {
+    await request(app).get("/api/health").expect(200, { status: "ok" });
+  });
 });
 
 describe("chat API", () => {
