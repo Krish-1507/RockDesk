@@ -1,6 +1,6 @@
-# Ticketdesk — Chat-to-Ticket (PyRock assessment)
+# RockDesk — Chat-to-Ticket (PyRock assessment)
 
-Describe an issue in plain words, in any language. Ticketdesk turns it into a clean, trackable ticket.
+Describe an issue in plain words, in any language. RockDesk turns it into a clean, trackable ticket.
 
 > The LLM interprets. The backend validates and decides. The database persists. The UI explains.
 
@@ -14,7 +14,7 @@ Describe an issue in plain words, in any language. Ticketdesk turns it into a cl
 
 > Deployment to the reviewer's Vercel account is a 10-minute, 3-command job — see [Deploy](#deploy). All builds, tests, and live end-to-end runs below were verified against the production Supabase project and the real Groq LLM.
 
-**Demo admin credentials:** `admin@pyrock.demo` / `Ticketdesk-Admin-2026`
+**Demo admin credentials:** `admin@rockdesk.demo` / `RockDesk-Admin-2026`
 
 The public chat needs no login. Assignable people are seeded: Priya Menon, Rahul Sharma, Rahul Verma (intentional duplicate for ambiguity testing), Amit Kumar, Neha Singh.
 
@@ -60,7 +60,7 @@ then link the profile so the API recognises the admin role:
 
 ```sql
 update public.app_users set auth_user_id = '<auth.users.id>', role = 'admin'
-where email = 'admin@pyrock.demo';
+where email = 'admin@rockdesk.demo';
 ```
 
 ## Environment variables

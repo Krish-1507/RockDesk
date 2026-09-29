@@ -8,7 +8,7 @@ insert into public.app_users (name, email, role, department, active) values
   ('Rahul Verma', 'rahul.verma@example.com', 'member', 'Frontend', true),
   ('Amit Kumar', 'amit.kumar@example.com', 'member', 'DevOps', true),
   ('Neha Singh', 'neha.singh@example.com', 'member', 'QA', true),
-  ('Admin', 'admin@pyrock.demo', 'admin', 'Operations', true)
+  ('Admin', 'admin@rockdesk.demo', 'admin', 'Operations', true)
 on conflict (email) do update set
   name = excluded.name,
   role = excluded.role,

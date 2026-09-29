@@ -29,8 +29,8 @@ interface SavedSession {
   updatedAt: number;
 }
 
-const SESSIONS_KEY = "ticketdesk.sessions";
-const ACTIVE_KEY = "ticketdesk.activeSession";
+const SESSIONS_KEY = "rockdesk.sessions";
+const ACTIVE_KEY = "rockdesk.activeSession";
 
 function loadSessions(): SavedSession[] {
   try {

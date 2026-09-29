@@ -6,8 +6,8 @@ const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
 
 export const metadata: Metadata = {
-  title: "Ticketdesk — Chat-to-Ticket",
-  description: "Describe an issue in plain words. Ticketdesk turns it into a clean, trackable ticket.",
+  title: "RockDesk — Chat-to-Ticket",
+  description: "Describe an issue in plain words. RockDesk turns it into a clean, trackable ticket.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }): React.JSX.Element {

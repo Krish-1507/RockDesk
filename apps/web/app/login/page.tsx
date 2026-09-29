@@ -6,7 +6,7 @@ import { createSupabaseBrowser } from "@/lib/supabase";
 
 export default function LoginPage(): React.JSX.Element {
   const router = useRouter();
-  const [email, setEmail] = useState("admin@pyrock.demo");
+  const [email, setEmail] = useState("admin@rockdesk.demo");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -35,10 +35,10 @@ export default function LoginPage(): React.JSX.Element {
       <div className="w-full max-w-sm">
         <div className="mb-8 flex items-center gap-2.5">
           <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#F0644E] text-[16px] font-bold text-white">
-            T
+            R
           </span>
           <div>
-            <div className="text-[17px] font-bold leading-5">Ticketdesk</div>
+            <div className="text-[17px] font-bold leading-5">RockDesk</div>
             <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#77736A]">
               Admin sign in
             </div>

@@ -27,10 +27,10 @@ export default function AppShell({ children }: { children: React.ReactNode }): R
         <div className="px-5 pb-6 pt-7">
           <div className="flex items-center gap-2.5">
             <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-[#F0644E] text-[15px] font-bold text-white">
-              T
+              R
             </span>
             <div>
-              <div className="text-[15px] font-bold leading-5">Ticketdesk</div>
+              <div className="text-[15px] font-bold leading-5">RockDesk</div>
               <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#77736A]">
                 Chat-to-Ticket
               </div>
@@ -74,9 +74,9 @@ export default function AppShell({ children }: { children: React.ReactNode }): R
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center gap-3 border-b border-[#D8D3C9] bg-[#FBFAF7] px-4 py-3 md:hidden">
           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#F0644E] text-[13px] font-bold text-white">
-            T
+            R
           </span>
-          <span className="text-[15px] font-bold">Ticketdesk</span>
+          <span className="text-[15px] font-bold">RockDesk</span>
           <nav className="ml-auto flex gap-1" aria-label="Primary">
             {NAV.map((item) => (
               <Link
