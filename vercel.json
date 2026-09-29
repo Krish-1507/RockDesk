@@ -5,8 +5,8 @@
       "root": "apps/api",
       "framework": "express",
       "entrypoint": "api/index.ts",
-      "installCommand": "node -e \"var p=require('path'),f=require('fs'),c=require('child_process'),d=process.cwd(),r='';for(var i=0;i<6&&!r;i++){if(f.existsSync(p.join(d,'apps','api','package.json'))&&f.existsSync(p.join(d,'packages','shared','package.json')))r=d;d=p.dirname(d)}if(!r)throw new Error('repo root not found');c.execSync('npm install',{cwd:r,stdio:'inherit'})\"",
-      "buildCommand": "node -e \"var p=require('path'),f=require('fs'),c=require('child_process'),d=process.cwd(),r='';for(var i=0;i<6&&!r;i++){if(f.existsSync(p.join(d,'apps','api','package.json'))&&f.existsSync(p.join(d,'packages','shared','package.json')))r=d;d=p.dirname(d)}if(!r)throw new Error('repo root not found');c.execSync('npm run build --workspace=@chat-to-ticket/shared',{cwd:r,stdio:'inherit'});c.execSync('npm run build --workspace=@chat-to-ticket/api',{cwd:r,stdio:'inherit'})\""
+      "installCommand": "for c in ./scripts/vercel-api-install.mjs ../scripts/vercel-api-install.mjs ../../scripts/vercel-api-install.mjs; do if [ -f \"$c\" ]; then node \"$c\"; break; fi; done",
+      "buildCommand": "for c in ./scripts/vercel-api-build.mjs ../scripts/vercel-api-build.mjs ../../scripts/vercel-api-build.mjs; do if [ -f \"$c\" ]; then node \"$c\"; break; fi; done"
     },
     "web": {
       "root": "apps/web",
