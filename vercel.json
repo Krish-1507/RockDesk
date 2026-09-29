@@ -4,6 +4,7 @@
     "api": {
       "root": "apps/api",
       "framework": "express",
+      "entrypoint": "api/index.ts",
       "installCommand": "npm install --prefix ../..",
       "buildCommand": "npm --prefix ../.. run build --workspace=@chat-to-ticket/shared && npm run build"
     },
