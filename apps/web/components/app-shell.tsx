@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ChatTeardropText, Ticket, Users, SignOut } from "@phosphor-icons/react";
-import { createSupabaseBrowser } from "@/lib/supabase";
+import { createSupabaseBrowser, isPublicConfigOk } from "@/lib/supabase";
+import { ConfigErrorBanner } from "@/components/config-error";
 
 const NAV = [
   { href: "/chat", label: "Chat", icon: ChatTeardropText },
@@ -16,10 +17,16 @@ export default function AppShell({ children }: { children: React.ReactNode }): R
   const router = useRouter();
 
   async function signOut(): Promise<void> {
-    const supabase = createSupabaseBrowser();
-    await supabase.auth.signOut();
+    try {
+      const supabase = createSupabaseBrowser();
+      await supabase.auth.signOut();
+    } catch {
+      // Config errors are surfaced by the banner; still leave the admin area.
+    }
     router.push("/login");
   }
+
+  const configOk = isPublicConfigOk();
 
   return (
     <div className="flex min-h-screen bg-[#F5F3EE] text-[#151512]">
@@ -72,6 +79,7 @@ export default function AppShell({ children }: { children: React.ReactNode }): R
         </div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
+        {!configOk && <ConfigErrorBanner />}
         <header className="flex items-center gap-3 border-b border-[#D8D3C9] bg-[#FBFAF7] px-4 py-3 md:hidden">
           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#F0644E] text-[13px] font-bold text-white">
             R

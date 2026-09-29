@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { motion } from "motion/react";
 import { ChatTeardropText, ShieldCheck, Translate } from "@phosphor-icons/react";
-import { createSupabaseBrowser } from "@/lib/supabase";
+import { createSupabaseBrowser, isPublicConfigOk } from "@/lib/supabase";
+import { CONFIG_HELP } from "@/components/config-error";
 
 export default function LoginPage(): React.JSX.Element {
   const router = useRouter();
@@ -13,6 +14,7 @@ export default function LoginPage(): React.JSX.Element {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const configOk = isPublicConfigOk();
 
   async function onSubmit(e: React.FormEvent): Promise<void> {
     e.preventDefault();
@@ -85,6 +87,11 @@ export default function LoginPage(): React.JSX.Element {
           </div>
           <h2 className="text-[24px] font-semibold leading-[30px]">Admin sign in</h2>
           <p className="mt-1 text-[13px] text-[#77736A]">Use the demo credentials from the README.</p>
+          {!configOk && (
+            <p className="mt-4 rounded-[10px] bg-[#FDF1EE] px-3 py-2 text-[13px] text-[#B83C34]" role="alert">
+              <strong className="font-semibold">Deployment misconfigured.</strong> {CONFIG_HELP}
+            </p>
+          )}
           <form onSubmit={onSubmit} className="mt-6 rounded-[16px] border border-[#D8D3C9] bg-[#FBFAF7] p-6">
             <label className="block text-[12px] font-semibold text-[#4E4C46]" htmlFor="email">
               Email
@@ -118,7 +125,7 @@ export default function LoginPage(): React.JSX.Element {
             <motion.button
               whileTap={{ scale: 0.98 }}
               type="submit"
-              disabled={busy}
+              disabled={busy || !configOk}
               className="mt-5 w-full rounded-[10px] bg-[#F0644E] py-2.5 text-[14px] font-semibold text-white transition-colors duration-150 hover:bg-[#C94A37] disabled:opacity-60"
             >
               {busy ? "Signing in…" : "Sign in"}

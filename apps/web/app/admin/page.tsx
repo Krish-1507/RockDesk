@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { MagnifyingGlass } from "@phosphor-icons/react";
 import AppShell from "@/components/app-shell";
 import { PriorityPill, StatusPill } from "@/components/pills";
+import { ConfigErrorBanner } from "@/components/config-error";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/states";
 import { listTickets, listUsers, type DirectoryUser, type TicketListItem } from "@/lib/api-client";
 import { useAdminGuard } from "./use-admin-guard";
@@ -32,7 +33,7 @@ function formatUpdated(iso: string): string {
 }
 
 export default function AdminListPage(): React.JSX.Element {
-  const { ready } = useAdminGuard();
+  const { ready, configError } = useAdminGuard();
   const [items, setItems] = useState<TicketListItem[]>([]);
   const [users, setUsers] = useState<DirectoryUser[]>([]);
   const [total, setTotal] = useState(0);
@@ -87,7 +88,7 @@ export default function AdminListPage(): React.JSX.Element {
     return (
       <AppShell>
         <div className="p-8">
-          <TableSkeleton />
+          {configError ? <ConfigErrorBanner /> : <TableSkeleton />}
         </div>
       </AppShell>
     );

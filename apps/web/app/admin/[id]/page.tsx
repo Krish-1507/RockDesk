@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { ArrowLeft } from "@phosphor-icons/react";
 import AppShell from "@/components/app-shell";
+import { ConfigErrorBanner } from "@/components/config-error";
 import { FieldLabel, MetaPill, PriorityPill, StatusPill } from "@/components/pills";
 import { ErrorState, TableSkeleton } from "@/components/states";
 import { getTicket, listUsers, patchTicket, type DirectoryUser, type TicketDetail } from "@/lib/api-client";
@@ -21,7 +22,7 @@ function formatDue(iso: string | null): string {
 }
 
 export default function AdminDetailPage(): React.JSX.Element {
-  const { ready } = useAdminGuard();
+  const { ready, configError } = useAdminGuard();
   const params = useParams<{ id: string }>();
   const id = params.id;
   const [detail, setDetail] = useState<TicketDetail | null>(null);
@@ -89,7 +90,7 @@ export default function AdminDetailPage(): React.JSX.Element {
   if (!ready || loading) {
     return (
       <AppShell>
-        <div className="mx-auto max-w-5xl p-8"><TableSkeleton rows={4} /></div>
+        <div className="mx-auto max-w-5xl p-8">{configError ? <ConfigErrorBanner /> : <TableSkeleton rows={4} />}</div>
       </AppShell>
     );
   }

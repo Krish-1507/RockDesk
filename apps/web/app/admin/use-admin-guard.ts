@@ -2,16 +2,21 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { createSupabaseBrowser } from "@/lib/supabase";
+import { createSupabaseBrowser, isPublicConfigOk } from "@/lib/supabase";
 import { authMe } from "@/lib/api-client";
 
-export function useAdminGuard(): { ready: boolean; displayName: string | null } {
+export function useAdminGuard(): { ready: boolean; displayName: string | null; configError: boolean } {
   const router = useRouter();
   const [ready, setReady] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [configError, setConfigError] = useState(false);
 
   useEffect(() => {
     (async () => {
+      if (!isPublicConfigOk()) {
+        setConfigError(true);
+        return;
+      }
       const supabase = createSupabaseBrowser();
       const { data } = await supabase.auth.getSession();
       if (!data.session) {
@@ -33,5 +38,5 @@ export function useAdminGuard(): { ready: boolean; displayName: string | null } 
     })();
   }, [router]);
 
-  return { ready, displayName };
+  return { ready, displayName, configError };
 }
