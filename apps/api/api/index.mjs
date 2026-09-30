@@ -1,15 +1,9 @@
 /**
  * Production serverless entry (plain JavaScript on purpose).
- * Bundled to a single file by esbuild — see package.json `bundle` script.
+ * Bundled to a single file by esbuild. Pure request handler: it must never
+ * listen on a port (the platform invokes the export per request).
  */
 import app from "../dist/src/index.js";
-
-if (process.env.PORT && process.env.VERCEL === "1") {
-  const port = Number(process.env.PORT) || 4000;
-  app.listen(port, () => {
-    console.log(`RockDesk API listening on ${port}`);
-  });
-}
 
 export default function handler(req, res) {
   app(req, res);

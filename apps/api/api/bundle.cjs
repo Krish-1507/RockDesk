@@ -70410,12 +70410,6 @@ if (process.env.VERCEL !== "1") {
 var src_default = app;
 
 // api/index.mjs
-if (process.env.PORT && process.env.VERCEL === "1") {
-  const port = Number(process.env.PORT) || 4e3;
-  src_default.listen(port, () => {
-    console.log(`RockDesk API listening on ${port}`);
-  });
-}
 function handler(req, res) {
   src_default(req, res);
 }
