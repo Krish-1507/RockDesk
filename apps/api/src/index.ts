@@ -1,21 +1,33 @@
 import fs from "node:fs";
 import path from "node:path";
-import dotenv from "dotenv";
 
 // Local dev loads the repo-root .env (walk up from CWD). On Vercel the
 // environment provides variables directly, so missing files are fine.
-let dir = process.cwd();
-for (let i = 0; i < 4; i++) {
-  const candidate = path.join(dir, ".env");
-  if (fs.existsSync(candidate)) {
-    dotenv.config({ path: candidate });
-    break;
+// Parsed by hand (no dotenv dependency) so the production bundle has no
+// dynamic-require interop hazards.
+function loadLocalEnv(): void {
+  let dir = process.cwd();
+  for (let i = 0; i < 4; i++) {
+    const candidate = path.join(dir, ".env");
+    if (fs.existsSync(candidate)) {
+      const lines = fs.readFileSync(candidate, "utf8").split(/\r?\n/);
+      for (const line of lines) {
+        const match = /^\s*([^#=\s][^=]*?)\s*=\s*(.*)\s*$/.exec(line);
+        const key = match?.[1]?.trim();
+        const value = match?.[2]?.trim();
+        if (key && value !== undefined && process.env[key] === undefined) {
+          process.env[key] = value;
+        }
+      }
+      break;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
   }
-  const parent = path.dirname(dir);
-  if (parent === dir) break;
-  dir = parent;
 }
-dotenv.config();
+
+loadLocalEnv();
 
 import express from "express";
 import { createApp } from "./app.js";

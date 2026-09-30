@@ -4,7 +4,7 @@
  */
 import app from "../dist/src/index.js";
 
-if (process.env.PORT) {
+if (process.env.PORT && process.env.VERCEL === "1") {
   const port = Number(process.env.PORT) || 4000;
   app.listen(port, () => {
     console.log(`RockDesk API listening on ${port}`);

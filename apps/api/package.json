@@ -11,13 +11,12 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "eslint src tests api",
     "test": "vitest run",
-    "bundle": "esbuild api/index.mjs --bundle --platform=node --format=esm --outfile=api/bundle.mjs --log-level=warning"
+    "bundle": "esbuild api/index.mjs --bundle --platform=node --format=cjs --outfile=api/bundle.cjs --log-level=warning"
   },
   "dependencies": {
     "@chat-to-ticket/shared": "*",
     "@supabase/supabase-js": "^2.117.2",
     "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
     "express": "^5.2.1",
     "groq-sdk": "^1.6.0",
     "helmet": "^8.0.0",
@@ -29,6 +28,7 @@
     "@types/express": "^5.0.5",
     "@types/node": "^22.10.2",
     "@types/supertest": "^7.2.1",
+    "dotenv": "^18.0.4",
     "esbuild": "^0.28.2",
     "eslint": "^9.39.5",
     "supertest": "^7.3.0",
