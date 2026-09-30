@@ -2,5 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "npm install",
   "buildCommand": "node ./scripts/vercel-api-build.mjs",
-  "outputDirectory": "public"
+  "outputDirectory": "public",
+  "functions": { "api/chat/message.mjs": { "maxDuration": 120 } }
 }

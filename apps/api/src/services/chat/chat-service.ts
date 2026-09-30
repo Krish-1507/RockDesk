@@ -15,8 +15,8 @@ import {
   findMessageByClientId,
   getSession,
   insertMessage,
-  latestAssistantAfter,
-  latestTicketForSession,
+  readOutcome,
+  saveOutcome,
   listMessages,
   savePendingState,
 } from "../../repositories/chat-repository.js";
@@ -43,7 +43,7 @@ export interface ChatOutcome {
   disambiguationOptions?: AssignableUser[] | undefined;
 }
 
-const AFFIRMATIVE = /^(yes|yeah|yep|yup|sure|ok|okay|correct|right|confirm|confirmed|haan|han|ha|ji|s[ií]|sí|claro|vale|oui|是的|对|好|نعم|أجل|हां)\b[.!]*$/i;
+const AFFIRMATIVE = /^(yes|yeah|yep|yup|sure|ok|okay|correct|right|confirm|confirmed|haan|han|ha|ji|s[ií]|claro|vale|oui|是的|对|好|نعم|أجل|हाँ|हां)[.!।。]*$/iu;
 
 function isAffirmative(text: string): boolean {
   return AFFIRMATIVE.test(text.trim().toLowerCase());
@@ -71,7 +71,11 @@ export async function processMessage(
   if (input.clientMessageId) {
     const existing = await findMessageByClientId(db, input.sessionId, input.clientMessageId);
     if (existing) {
-      return rebuildOutcome(db, input.sessionId, existing);
+      if (existing.content !== text) throw new AppError("CONFLICT", 409, "This message ID was already used for different text.");
+      const saved = await readOutcome(db, existing.id) as { result?: ChatOutcome; error?: { code: "AI_UNAVAILABLE"; status: number; message: string } } | null;
+      if (saved?.result) return saved.result;
+      if (saved?.error) throw new AppError(saved.error.code, saved.error.status, saved.error.message);
+      throw new AppError("CONFLICT", 409, "This message is still processing. Please retry shortly.");
     }
   }
 
@@ -82,6 +86,10 @@ export async function processMessage(
     clientMessageId: input.clientMessageId,
   });
 
+  const finish = async (result: ChatOutcome): Promise<ChatOutcome> => {
+    await saveOutcome(db, userMsg.id, { result });
+    return result;
+  };
   const session = await getSession(db, input.sessionId);
   if (!session) throw new AppError("NOT_FOUND", 404, "Chat session not found.");
   const draft = session.pendingTicket;
@@ -114,6 +122,7 @@ export async function processMessage(
       content: "I couldn't process that right now. Your message is safe. Please try again.",
       detectedLanguage: draft?.language ?? "en",
     });
+    await saveOutcome(db, userMsg.id, { error: { code: "AI_UNAVAILABLE", status: 502, message: "The AI could not process this message. Please send it again." } });
     if (code === "AI_TIMEOUT") throw new AppError("AI_TIMEOUT", 504, "The AI request timed out.", { assistantMessage: assistant });
     if (code === "AI_INVALID_OUTPUT") throw new AppError("AI_INVALID_OUTPUT", 502, "The AI response was unusable. Please try again.", { assistantMessage: assistant });
     throw new AppError("AI_UNAVAILABLE", 502, "The AI service is unavailable. Please try again.", { assistantMessage: assistant });
@@ -129,7 +138,7 @@ export async function processMessage(
       content: CANCELLED_MESSAGE[langFamily(analysis.language)] ?? CANCELLED_MESSAGE.en,
       detectedLanguage: analysis.language,
     });
-    return { sessionId: input.sessionId, assistantMessage: assistant, state: "idle", draft: null, ticket: null };
+    return finish({ sessionId: input.sessionId, assistantMessage: assistant, state: "idle", draft: null, ticket: null });
   }
 
   if (analysis.intent === "general_chat") {
@@ -143,17 +152,17 @@ export async function processMessage(
     });
     const refreshed = await getSession(db, input.sessionId);
     const stillPending = refreshed?.pendingTicket ?? null;
-    return {
+    return finish({
       sessionId: input.sessionId,
       assistantMessage: assistant,
       state: stillPending ? "awaiting_clarification" : "idle",
       draft: stillPending,
       ticket: null,
-    };
+    });
   }
 
   // intent === create_ticket → backend-owned merge + resolution.
-  return handleTicketIntent(db, {
+  return finish(await handleTicketIntent(db, {
     sessionId: input.sessionId,
     text,
     userMsgId: userMsg.id,
@@ -162,7 +171,7 @@ export async function processMessage(
     users,
     today,
     timezone,
-  });
+  }));
 }
 
 interface TicketIntentContext {
@@ -194,9 +203,7 @@ async function handleTicketIntent(db: SupabaseClient, ctx: TicketIntentContext):
   let assigneeMissing = false;
   let assigneeProblem: { kind: "ambiguous" | "not_found"; options?: AssignableUser[]; candidate?: string } | null = null;
 
-  if (explicitlyUnassigned) {
-    // stays unassigned unless the user names someone now
-  } else if (draft?.disambiguationOptions?.length && !assigneeId) {
+  if (draft?.disambiguationOptions?.length && !assigneeId && analysis.assigneeResolution !== "explicitly_unassigned") {
     const picked = await resolveAnswerToUser(db, ctx.text, draft.disambiguationOptions);
     if (picked) {
       assigneeId = picked.id;
@@ -205,6 +212,7 @@ async function handleTicketIntent(db: SupabaseClient, ctx: TicketIntentContext):
       const outcome = await resolveAssignee(db, analysis.assigneeCandidate, analysis.assigneeResolution, ctx.text);
       if (outcome.kind === "resolved") {
         assigneeId = outcome.user.id;
+        explicitlyUnassigned = false;
         disambiguationOptions = [];
       } else if (outcome.kind === "explicitly_unassigned") {
         explicitlyUnassigned = true;
@@ -224,12 +232,21 @@ async function handleTicketIntent(db: SupabaseClient, ctx: TicketIntentContext):
     const outcome = await resolveAssignee(db, analysis.assigneeCandidate, analysis.assigneeResolution, ctx.text);
     if (outcome.kind === "resolved") {
       assigneeId = outcome.user.id;
+      explicitlyUnassigned = false;
+      disambiguationOptions = [];
     } else if (outcome.kind === "explicitly_unassigned") {
       explicitlyUnassigned = true;
+      assigneeId = null;
+      disambiguationOptions = [];
     } else if (outcome.kind === "ambiguous") {
+      assigneeId = null;
+      explicitlyUnassigned = false;
       disambiguationOptions = outcome.options;
       assigneeProblem = { kind: "ambiguous", options: outcome.options };
     } else if (outcome.kind === "not_found") {
+      assigneeId = null;
+      explicitlyUnassigned = false;
+      disambiguationOptions = [];
       assigneeProblem = { kind: "not_found", candidate: outcome.candidate };
     } else if (outcome.kind === "unknown" && draft?.assigneeId) {
       assigneeId = draft.assigneeId;
@@ -337,25 +354,6 @@ async function handleTicketIntent(db: SupabaseClient, ctx: TicketIntentContext):
 }
 
 async function persistDetectedLanguage(db: SupabaseClient, messageId: string, language: string): Promise<void> {
-  await db.from("chat_messages").update({ detected_language: language }).eq("id", messageId);
-}
-
-/** Rebuild the outcome for a retried (idempotent) submission. */
-async function rebuildOutcome(db: SupabaseClient, sessionId: string, userMsg: ChatMessageRecord): Promise<ChatOutcome> {
-  const session = await getSession(db, sessionId);
-  const assistant = await latestAssistantAfter(db, sessionId, userMsg.createdAt);
-  const recent = assistant ?? (await listMessages(db, sessionId, 50)).filter((m) => m.role === "assistant").pop();
-  if (!recent) throw new AppError("CONFLICT", 409, "The message was already received; the reply is still being prepared.");
-  let ticket: TicketRecord | null = null;
-  if (!session?.pendingTicket) {
-    const latest = await latestTicketForSession(db, sessionId);
-    if (latest) ticket = await getTicketById(db, latest.id);
-  }
-  return {
-    sessionId,
-    assistantMessage: recent,
-    state: session?.pendingTicket ? "awaiting_clarification" : "idle",
-    draft: session?.pendingTicket ?? null,
-    ticket,
-  };
+  const { error } = await db.from("chat_messages").update({ detected_language: language }).eq("id", messageId);
+  if (error) throw error;
 }

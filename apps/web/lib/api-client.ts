@@ -18,12 +18,8 @@ export class ApiError extends Error {
 }
 
 function apiBase(): string {
-  // Single-domain deploy (Vercel services rewrites /api/* to the api service):
-  // leave NEXT_PUBLIC_API_BASE_URL unset for same-origin calls.
-  // Local dev sets it to http://localhost:4000 (see apps/web/.env.local).
-  const base = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "").trim();
-  if (!base) return "";
-  return base.replace(/\/$/, "");
+  // The Next.js route forwards to the configured Express API on the server.
+  return "";
 }
 
 async function parse<T>(res: Response): Promise<T> {
@@ -34,7 +30,10 @@ async function parse<T>(res: Response): Promise<T> {
   if (!res.ok) {
     throw new ApiError(json?.error?.code ?? "INTERNAL_ERROR", res.status, json?.error?.message ?? "Something went wrong.");
   }
-  return (json?.data ?? null) as T;
+  if (!json || !("data" in json)) {
+    throw new ApiError("INVALID_RESPONSE", 502, "The server returned an unexpected response. Please try again.");
+  }
+  return json.data as T;
 }
 
 export interface ChatSessionCreate {
@@ -107,7 +106,7 @@ export async function sendChatMessage(args: {
 
 export interface ChatHistory {
   session: { id: string; pendingTicket: DraftView | null; pendingState: string };
-  messages: Array<{ id: string; role: "user" | "assistant"; content: string; detectedLanguage: string | null; createdAt: string }>;
+  messages: Array<{ id: string; role: "user" | "assistant"; content: string; detectedLanguage: string | null; createdAt: string; ticket?: CreatedTicketView | null }>;
 }
 
 export async function loadChatHistory(sessionId: string, sessionToken: string): Promise<ChatHistory> {

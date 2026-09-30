@@ -35,11 +35,12 @@ Rules (in priority order):
 4. Description: 1-2 sentence English summary of the issue/task. Null only for general_chat/cancel.
 5. Assignee:
    - assigneeCandidate: the raw name/phrase the user used (e.g. "Rahul"), or null if none mentioned.
-   - "explicitly_unassigned" when the user says leave unassigned / no one / backlog / triage.
+   - "explicitly_unassigned" ONLY when the user explicitly asks for nobody to be assigned. Mentioning a backlog or triage issue alone does not waive assignment.
    - "unknown" when nobody was mentioned yet (needs clarification). "ambiguous" ONLY when the name matches more than one known person. "resolved" ONLY for an exact unique full-name match in the list. "not_found" when a name was given but matches nobody. NEVER put a UUID in resolvedAssigneeId (always null — the backend resolves IDs).
 6. Due date:
    - Resolve relative dates ("today", "tomorrow", "Friday", "next Monday", "end of week", "by the 4th") to ISO YYYY-MM-DD using today=${input.todayInTimezone} and ${input.timezone}. If "the 4th" is ambiguous between this month and next, pick the nearest FUTURE 4th and set dueDateResolution="ambiguous" so the backend confirms it.
-   - "no_deadline" when the user says no deadline / no rush / whenever / backlog.
+   - "no_deadline" ONLY when the user explicitly waives a deadline. Mentioning a backlog alone does not waive the deadline.
+   - "next Friday" means Friday of the next Monday-Sunday calendar week; "Friday" means the upcoming Friday; "end of week" means the upcoming Friday (today if Friday).
    - "unknown" when no date info exists yet. dueDateRaw keeps the user's original phrase (or null).
    - NEVER invent a date when none was given (leave dueDate null + unknown).
 7. missingFields: which of ["title","assignee","due_date"] still block creation. Title is missing only if no issue/task is discernible. Explicitly-unassigned and no-deadline count as SATISFIED (do not list them).

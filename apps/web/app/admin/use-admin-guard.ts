@@ -3,13 +3,14 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createSupabaseBrowser, isPublicConfigOk } from "@/lib/supabase";
-import { authMe } from "@/lib/api-client";
+import { ApiError, authMe } from "@/lib/api-client";
 
-export function useAdminGuard(): { ready: boolean; displayName: string | null; configError: boolean } {
+export function useAdminGuard(): { ready: boolean; displayName: string | null; configError: boolean; authError: string | null } {
   const router = useRouter();
   const [ready, setReady] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [configError, setConfigError] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -17,13 +18,13 @@ export function useAdminGuard(): { ready: boolean; displayName: string | null; c
         setConfigError(true);
         return;
       }
+      try {
       const supabase = createSupabaseBrowser();
       const { data } = await supabase.auth.getSession();
       if (!data.session) {
         router.replace("/login");
         return;
       }
-      try {
         const me = await authMe();
         if (me.role !== "admin") {
           await supabase.auth.signOut();
@@ -32,11 +33,12 @@ export function useAdminGuard(): { ready: boolean; displayName: string | null; c
         }
         setDisplayName(me.name);
         setReady(true);
-      } catch {
-        router.replace("/login");
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) router.replace("/login");
+        else setAuthError(err instanceof Error ? err.message : "Could not verify your access. Please retry.");
       }
     })();
   }, [router]);
 
-  return { ready, displayName, configError };
+  return { ready, displayName, configError, authError };
 }

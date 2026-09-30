@@ -8,6 +8,7 @@ import TicketCard from "@/components/ticket-card";
 import { FieldLabel, MetaPill } from "@/components/pills";
 import {
   createChatSession,
+  ApiError,
   loadChatHistory,
   sendChatMessage,
   type ChatMessageResponse,
@@ -73,6 +74,9 @@ export default function ChatPage(): React.JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const busyRef = useRef(false);
+  const activationRef = useRef(0);
+  const pendingSend = useRef<{ sessionId: string; text: string; id: string } | null>(null);
 
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone ?? "Asia/Kolkata";
 
@@ -88,6 +92,9 @@ export default function ChatPage(): React.JSX.Element {
   }, [input]);
 
   const activateSession = useCallback(async (id: string, token: string, title: string) => {
+    if (busyRef.current) return;
+    const activation = ++activationRef.current;
+    setBooting(true);
     setSessionId(id);
     setSessionToken(token);
     setMessages([]);
@@ -96,10 +103,15 @@ export default function ChatPage(): React.JSX.Element {
     localStorage.setItem(ACTIVE_KEY, id);
     try {
       const history = await loadChatHistory(id, token);
-      setMessages(history.messages.map((m) => ({ id: m.id, role: m.role, content: m.content })));
+      if (activation !== activationRef.current) return;
+      setMessages(history.messages.map((m) => ({ id: m.id, role: m.role, content: m.content, ticket: m.ticket })));
       if (history.session.pendingTicket) setDraft(history.session.pendingTicket as DraftView);
-    } catch {
-      // A fresh session has no history; failures here are non-fatal.
+    } catch (err) {
+      if (activation !== activationRef.current) return;
+      setError(err instanceof Error ? err.message : "Could not load this conversation. Please select it again to retry.");
+      setSessionToken(null);
+    } finally {
+      if (activation === activationRef.current) setBooting(false);
     }
     setSessions((prev) => {
       const next = [{ id, token, title, updatedAt: Date.now() }, ...prev.filter((s) => s.id !== id)].slice(0, 20);
@@ -109,6 +121,7 @@ export default function ChatPage(): React.JSX.Element {
   }, []);
 
   const startNewSession = useCallback(async () => {
+    if (busyRef.current) return;
     setError(null);
     try {
       const created = await createChatSession();
@@ -136,11 +149,15 @@ export default function ChatPage(): React.JSX.Element {
 
   async function send(text: string): Promise<void> {
     const trimmed = text.trim();
-    if (!trimmed || sending || !sessionId || !sessionToken) return;
+    if (!trimmed || busyRef.current || booting || !sessionId || !sessionToken) return;
+    busyRef.current = true;
     setSending(true);
     setError(null);
-    const userMsg: Message = { id: `local-${Date.now()}`, role: "user", content: trimmed };
-    setMessages((prev) => [...prev, userMsg]);
+    const retry = pendingSend.current?.sessionId === sessionId && pendingSend.current.text === trimmed;
+    const clientMessageId = retry && pendingSend.current ? pendingSend.current.id : crypto.randomUUID();
+    pendingSend.current = { sessionId, text: trimmed, id: clientMessageId };
+    const userMsg: Message = { id: clientMessageId, role: "user", content: trimmed };
+    setMessages((prev) => prev.some((m) => m.id === clientMessageId) ? prev : [...prev, userMsg]);
     setInput("");
     try {
       const res: ChatMessageResponse = await sendChatMessage({
@@ -148,7 +165,7 @@ export default function ChatPage(): React.JSX.Element {
         sessionToken,
         message: trimmed,
         timezone,
-        clientMessageId: crypto.randomUUID(),
+        clientMessageId,
       });
       const assistant: Message = {
         id: res.assistantMessage.id,
@@ -159,6 +176,7 @@ export default function ChatPage(): React.JSX.Element {
       };
       setMessages((prev) => [...prev, assistant]);
       setDraft(res.draft);
+      pendingSend.current = null;
       setSessions((prev) => {
         const next = prev.map((s) =>
           s.id === sessionId && s.title === "New conversation"
@@ -170,7 +188,12 @@ export default function ChatPage(): React.JSX.Element {
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not send that message.");
+      setInput(trimmed);
+      // A definite model failure created no ticket; a network failure is retried
+      // with the same ID because the server may already have completed it.
+      if (err instanceof ApiError && ["AI_TIMEOUT", "AI_INVALID_OUTPUT", "AI_UNAVAILABLE", "VALIDATION_ERROR"].includes(err.code)) pendingSend.current = null;
     } finally {
+      busyRef.current = false;
       setSending(false);
       textareaRef.current?.focus();
     }
@@ -379,7 +402,7 @@ export default function ChatPage(): React.JSX.Element {
                 <motion.button
                   whileTap={{ scale: 0.92 }}
                   onClick={() => void send(input)}
-                  disabled={sending || !input.trim()}
+                  disabled={sending || booting || !sessionToken || !input.trim()}
                   aria-label="Send message"
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[#F0644E] text-white transition-colors duration-150 hover:bg-[#C94A37] disabled:cursor-not-allowed disabled:bg-[#D8D3C9]"
                 >
@@ -447,7 +470,7 @@ export default function ChatPage(): React.JSX.Element {
                 </dl>
               </div>
               <p className="hidden border-t border-[#D8D3C9] px-5 py-4 text-[12px] leading-[18px] text-[#77736A] lg:block">
-                This draft lives in the database, not in memory — it survives refreshes and deploys.
+                Your draft is saved. Answer the remaining questions to create the ticket, or type “forget it” to discard it.
               </p>
             </motion.aside>
           )}

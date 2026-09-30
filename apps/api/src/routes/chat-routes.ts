@@ -6,7 +6,7 @@ import { rateLimit } from "../middleware/rate-limit.js";
 export const chatRouter: Router = Router();
 
 chatRouter.post("/sessions", createChatSession);
-chatRouter.post("/message", rateLimit("chat-message"), requireChatSession, sendChatMessage);
+chatRouter.post("/message", requireChatSession, rateLimit("chat-message"), sendChatMessage);
 // Static alias (some static hosts do not match dynamic segments).
 chatRouter.get("/sessions/by-id", requireChatSession, getChatSession);
 chatRouter.get("/sessions/:id", requireChatSession, getChatSession);

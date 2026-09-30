@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import type { AIProvider } from "@chat-to-ticket/shared";
 import { SendMessageSchema } from "../schemas/http.js";
 import { getSupabaseAdmin } from "../config/supabase.js";
+import { getEnv } from "../config/env.js";
 import { createSession, getSession, listMessages } from "../repositories/chat-repository.js";
 import { generateSessionToken, hashSessionToken } from "../utils/tokens.js";
 import { getUserById } from "../repositories/user-repository.js";
@@ -52,7 +53,7 @@ export async function sendChatMessage(req: Request, res: Response): Promise<void
     const outcome = await processMessage(db, getAI(), {
       sessionId: parsed.data.sessionId,
       message: parsed.data.message,
-      timezone: parsed.data.timezone,
+      timezone: parsed.data.timezone ?? getEnv().APP_TIMEZONE_DEFAULT,
       clientMessageId: parsed.data.clientMessageId,
     });
     // Resolve the pending assignee's display name so the UI never shows an opaque id.
@@ -136,8 +137,15 @@ export async function getChatSession(req: Request, res: Response): Promise<void>
       return;
     }
     const messages = await listMessages(db, sessionId, 100);
+    const assignee = session.pendingTicket?.assigneeId ? await getUserById(db, session.pendingTicket.assigneeId) : null;
+    const { data: outcomes, error: outcomeError } = await db.from("chat_messages").select("outcome").eq("session_id", sessionId).not("outcome", "is", null);
+    if (outcomeError) throw outcomeError;
+    const results = (outcomes ?? []).map((row) => row.outcome as { result?: { assistantMessage: { id: string }; ticket: unknown } });
     logRequest(req, 200, { operation: "chat-session-get" });
-    res.status(200).json(ok({ session, messages }));
+    res.status(200).json(ok({
+      session: { ...session, pendingTicket: session.pendingTicket ? { ...session.pendingTicket, assigneeName: assignee?.name ?? null } : null },
+      messages: messages.map((message) => ({ ...message, ticket: results.find((r) => r.result?.assistantMessage.id === message.id)?.result?.ticket ?? null })),
+    }));
   } catch {
     logRequest(req, 500, { operation: "chat-session-get", errorCode: "DATABASE_ERROR" });
     res.status(500).json(errorBody("DATABASE_ERROR", "Could not load the chat session."));

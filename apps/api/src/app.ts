@@ -50,6 +50,10 @@ export function createApp(): express.Express {
 
   // Never leak stack traces to clients; keep diagnostics server-side.
   app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+    if (err instanceof SyntaxError && "body" in err) {
+      res.status(400).json(errorBody("VALIDATION_ERROR", "Request body must be valid JSON."));
+      return;
+    }
     console.error(JSON.stringify({ route: "unhandled", message: err.message }));
     res.status(500).json(errorBody("INTERNAL_ERROR", "Something went wrong. Please try again."));
   });

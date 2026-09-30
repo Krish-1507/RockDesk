@@ -21,26 +21,18 @@ export function rateLimit(operation: string) {
       const windowStart = new Date(Math.floor(Date.now() / 60000) * 60000).toISOString();
       const bucket = `${operation}:${identifier}:${windowStart}`;
       const supabase = getSupabaseAdmin();
-      const { data: existing } = await supabase
-        .from("rate_limits")
-        .select("count")
-        .eq("bucket", bucket)
-        .maybeSingle();
-      const row = existing as { count: number } | null;
-      const current = row?.count ?? 0;
-      if (current >= limit) {
+      const { data: count, error } = await supabase.rpc("consume_rate_limit", { p_bucket: bucket, p_window_start: windowStart });
+      if (error) throw error;
+      if (Number(count) > limit) {
         logRequest(req, 429, { operation, errorCode: "RATE_LIMITED" });
+        res.setHeader("Retry-After", "60");
         res.status(429).json(errorBody("RATE_LIMITED", "Too many requests. Please wait a moment and try again."));
         return;
       }
-      await supabase.from("rate_limits").upsert(
-        { bucket, count: current + 1, window_start: windowStart },
-        { onConflict: "bucket" },
-      );
       next();
     } catch {
-      // Fail open on limiter errors so a limiter outage does not take down chat.
-      next();
+      logRequest(req, 503, { operation, errorCode: "DATABASE_ERROR" });
+      res.status(503).json(errorBody("DATABASE_ERROR", "Chat is temporarily unavailable. Please try again shortly."));
     }
   };
 }

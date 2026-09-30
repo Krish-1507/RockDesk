@@ -76,10 +76,9 @@ export async function findUsersByName(db: SupabaseClient, candidate: string): Pr
   const exact = all.filter((u) => u.name.toLowerCase() === term);
   if (exact.length > 0) return exact;
   const tokens = term.split(/\s+/).filter(Boolean);
-  // Full-name containment (either direction) or all-tokens match.
+  // Match complete name tokens, never substrings such as "Ami" -> "Amit".
   return all.filter((u) => {
-    const name = u.name.toLowerCase();
-    if (name.includes(term) || term.includes(name)) return true;
-    return tokens.every((t) => name.includes(t));
+    const nameTokens = u.name.toLowerCase().split(/\s+/);
+    return tokens.every((t) => nameTokens.includes(t));
   });
 }

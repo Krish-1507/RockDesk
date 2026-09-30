@@ -33,7 +33,7 @@ function formatUpdated(iso: string): string {
 }
 
 export default function AdminListPage(): React.JSX.Element {
-  const { ready, configError } = useAdminGuard();
+  const { ready, configError, authError } = useAdminGuard();
   const [items, setItems] = useState<TicketListItem[]>([]);
   const [users, setUsers] = useState<DirectoryUser[]>([]);
   const [total, setTotal] = useState(0);
@@ -43,6 +43,8 @@ export default function AdminListPage(): React.JSX.Element {
   const [status, setStatus] = useState("");
   const [assigneeId, setAssigneeId] = useState("");
   const [priority, setPriority] = useState("");
+  const [dueFrom, setDueFrom] = useState("");
+  const [dueTo, setDueTo] = useState("");
   const [overdueOnly, setOverdueOnly] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,6 +58,8 @@ export default function AdminListPage(): React.JSX.Element {
       if (status) params.set("status", status);
       if (assigneeId) params.set("assigneeId", assigneeId);
       if (priority) params.set("priority", priority);
+      if (dueFrom) params.set("dueFrom", dueFrom);
+      if (dueTo) params.set("dueTo", dueTo);
       if (overdueOnly) params.set("overdue", "true");
       params.set("page", String(page));
       params.set("pageSize", "15");
@@ -68,7 +72,7 @@ export default function AdminListPage(): React.JSX.Element {
     } finally {
       setLoading(false);
     }
-  }, [search, status, assigneeId, priority, overdueOnly, page]);
+  }, [search, status, assigneeId, priority, dueFrom, dueTo, overdueOnly, page]);
 
   useEffect(() => {
     if (!ready) return;
@@ -88,7 +92,7 @@ export default function AdminListPage(): React.JSX.Element {
     return (
       <AppShell>
         <div className="p-8">
-          {configError ? <ConfigErrorBanner /> : <TableSkeleton />}
+          {authError ? <ErrorState message={authError} onRetry={() => window.location.reload()} /> : configError ? <ConfigErrorBanner /> : <TableSkeleton />}
         </div>
       </AppShell>
     );
@@ -147,6 +151,16 @@ export default function AdminListPage(): React.JSX.Element {
               Overdue
             </button>
           </div>
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-end gap-3">
+          <label className="text-[12px] text-[#4E4C46]">Due from
+            <input type="date" value={dueFrom} max={dueTo || undefined} onChange={(e) => resetPageAndFetch(() => setDueFrom(e.target.value))} className={`${selectCls} ml-2`} />
+          </label>
+          <label className="text-[12px] text-[#4E4C46]">Due through
+            <input type="date" value={dueTo} min={dueFrom || undefined} onChange={(e) => resetPageAndFetch(() => setDueTo(e.target.value))} className={`${selectCls} ml-2`} />
+          </label>
+          {(dueFrom || dueTo) && <button className="text-[12px] text-[#C94A37]" onClick={() => { setDueFrom(""); setDueTo(""); setPage(1); }}>Clear dates</button>}
         </div>
 
         <div className="mt-4">

@@ -8,7 +8,7 @@ import { createUser, listUsers, type DirectoryUser } from "@/lib/api-client";
 import { useAdminGuard } from "../use-admin-guard";
 
 export default function UsersPage(): React.JSX.Element {
-  const { ready, configError } = useAdminGuard();
+  const { ready, configError, authError } = useAdminGuard();
   const [users, setUsers] = useState<DirectoryUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,7 +71,7 @@ export default function UsersPage(): React.JSX.Element {
         <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_320px]">
           <div>
             {!ready || loading ? (
-              configError ? <ConfigErrorBanner /> : <TableSkeleton rows={5} />
+              authError ? <ErrorState message={authError} onRetry={() => window.location.reload()} /> : configError ? <ConfigErrorBanner /> : <TableSkeleton rows={5} />
             ) : error ? (
               <ErrorState message={error} onRetry={fetchUsers} />
             ) : users.length === 0 ? (

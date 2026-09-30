@@ -2,6 +2,17 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ChatMessageRecord, ChatSessionState, PendingTicket } from "@chat-to-ticket/shared";
 import { PendingTicketSchema } from "@chat-to-ticket/shared";
 
+export async function readOutcome(db: SupabaseClient, messageId: string): Promise<unknown> {
+  const { data, error } = await db.from("chat_messages").select("outcome").eq("id", messageId).single();
+  if (error) throw error;
+  return data.outcome;
+}
+
+export async function saveOutcome(db: SupabaseClient, messageId: string, outcome: unknown): Promise<void> {
+  const { error } = await db.from("chat_messages").update({ outcome }).eq("id", messageId);
+  if (error) throw error;
+}
+
 export async function createSession(db: SupabaseClient, tokenHash: string): Promise<ChatSessionState> {
   const { data, error } = await db
     .from("chat_sessions")
@@ -128,10 +139,10 @@ export async function listMessages(db: SupabaseClient, sessionId: string, limit 
     .from("chat_messages")
     .select("id, session_id, role, content, detected_language, client_message_id, created_at")
     .eq("session_id", sessionId)
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: false })
     .limit(limit);
   if (error) throw error;
-  return (data as MessageRow[]).map(toMessage);
+  return (data as MessageRow[]).reverse().map(toMessage);
 }
 
 export async function latestAssistantAfter(

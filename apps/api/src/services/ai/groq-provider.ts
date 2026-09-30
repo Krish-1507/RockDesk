@@ -96,12 +96,13 @@ export class GroqAIProvider implements AIProvider {
   }
 
   private async attemptWithKey(key: string, system: string, user: string): Promise<TicketAnalysis> {
-    const client = new Groq({ apiKey: key });
+    // Disable SDK retries: the application owns the bounded repair/failover policy.
+    const client = new Groq({ apiKey: key, timeout: AI_TIMEOUT_MS, maxRetries: 0 });
     let raw: string;
     try {
       raw = await complete(client, this.model, system, user);
     } catch (err) {
-      if (err instanceof Error && err.message === "AI_TIMEOUT") throw err;
+      if (err instanceof Error && (err.message === "AI_TIMEOUT" || err.name === "APIConnectionTimeoutError")) throw new Error("AI_TIMEOUT");
       throw new Error("AI_PROVIDER_ERROR");
     }
     const first = parseAnalysis(raw);

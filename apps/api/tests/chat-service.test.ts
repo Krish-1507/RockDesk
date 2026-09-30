@@ -1,12 +1,17 @@
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { getSupabaseAdmin } from "../src/config/supabase.js";
-import { createSession } from "../src/repositories/chat-repository.js";
+import { createSession, insertMessage, listMessages } from "../src/repositories/chat-repository.js";
 import { hashSessionToken } from "../src/utils/tokens.js";
 import { processMessage } from "../src/services/chat/chat-service.js";
 import { baseAnalysis, MockAIProvider } from "./mock-ai.js";
 
 const createdSessionIds: string[] = [];
 const createdTicketIds: string[] = [];
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-09-30T10:00:00Z"));
+});
 
 async function newSession(): Promise<string> {
   const db = getSupabaseAdmin();
@@ -16,6 +21,7 @@ async function newSession(): Promise<string> {
 }
 
 afterEach(async () => {
+  vi.useRealTimers();
   const db = getSupabaseAdmin();
   if (createdTicketIds.length > 0) {
     await db.from("ticket_events").delete().in("ticket_id", createdTicketIds);
@@ -30,6 +36,55 @@ afterEach(async () => {
 });
 
 describe("chat state machine", () => {
+  it("honours a correction from an assigned person to unassigned", async () => {
+    const db = getSupabaseAdmin();
+    const ai = new MockAIProvider();
+    const sessionId = await newSession();
+    ai.enqueue(baseAnalysis({ normalizedEnglishTitle: "Login broken", assigneeCandidate: "Priya", assigneeResolution: "resolved" }));
+    await processMessage(db, ai, { sessionId, message: "Login broken, assign Priya", timezone: "Asia/Kolkata" });
+    ai.enqueue(baseAnalysis({ normalizedEnglishTitle: "Login broken", assigneeResolution: "explicitly_unassigned", dueDateResolution: "no_deadline" }));
+    const result = await processMessage(db, ai, { sessionId, message: "Actually leave it unassigned, no deadline", timezone: "Asia/Kolkata" });
+    if (result.ticket) createdTicketIds.push(result.ticket.id);
+    expect(result.ticket).not.toBeNull();
+    expect(result.ticket?.assigneeId).toBeNull();
+  });
+
+  it("does not keep the old assignee when a correction is ambiguous", async () => {
+    const db = getSupabaseAdmin();
+    const ai = new MockAIProvider();
+    const sessionId = await newSession();
+    ai.enqueue(baseAnalysis({ normalizedEnglishTitle: "Login broken", assigneeCandidate: "Priya", assigneeResolution: "resolved" }));
+    await processMessage(db, ai, { sessionId, message: "Login broken, assign Priya", timezone: "Asia/Kolkata" });
+    ai.enqueue(baseAnalysis({ normalizedEnglishTitle: "Login broken", assigneeCandidate: "Rahul", assigneeResolution: "ambiguous", dueDateResolution: "no_deadline" }));
+    const result = await processMessage(db, ai, { sessionId, message: "Actually Rahul, no deadline", timezone: "Asia/Kolkata" });
+    if (result.ticket) createdTicketIds.push(result.ticket.id);
+    expect(result.ticket).toBeNull();
+    expect(result.draft?.assigneeId).toBeNull();
+    expect(result.draft?.missingFields).toContain("assignee");
+  });
+
+  it("loads recent context rather than the beginning of a long conversation", async () => {
+    const db = getSupabaseAdmin();
+    const sessionId = await newSession();
+    for (let i = 0; i < 5; i++) await insertMessage(db, { sessionId, role: "user", content: `message ${i}` });
+    const recent = await listMessages(db, sessionId, 2);
+    expect(recent.map((m) => m.content)).toEqual(["message 3", "message 4"]);
+  });
+
+  it("replays the original result even after a later conversation turn", async () => {
+    const db = getSupabaseAdmin();
+    const ai = new MockAIProvider();
+    const sessionId = await newSession();
+    const input = { sessionId, message: "Hello", timezone: "Asia/Kolkata", clientMessageId: "77777777-2222-4333-8444-555555555555" };
+    ai.enqueue(baseAnalysis({ intent: "general_chat", userResponse: "Hello there." }));
+    const first = await processMessage(db, ai, input);
+    ai.enqueue(baseAnalysis({ normalizedEnglishTitle: "New issue" }));
+    await processMessage(db, ai, { sessionId, message: "New issue", timezone: "Asia/Kolkata" });
+    const replay = await processMessage(db, ai, input);
+    expect(replay).toEqual(first);
+    await expect(processMessage(db, ai, { ...input, message: "Changed text" })).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+
   beforeAll(() => {
     if (!process.env.SUPABASE_URL) throw new Error("SUPABASE_URL missing for tests");
   });

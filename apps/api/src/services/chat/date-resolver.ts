@@ -6,6 +6,12 @@ export type DateOutcome =
 
 const ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+export function isValidIsoDate(value: string): boolean {
+  if (!ISO_RE.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
 function toIso(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
@@ -48,11 +54,8 @@ function nextWeekday(today: string, target: number, modifier: "this" | "next" | 
   const current = base.getUTCDay();
   let delta = (target - current + 7) % 7;
   if (modifier === "next") {
-    delta = delta === 0 ? 7 : delta + 7 <= 7 ? 7 : delta;
-    if (delta <= 0) delta += 7;
-    if (delta < 7) delta = 7 + ((target - current + 7) % 7 === 0 ? 0 : (target - current + 7) % 7);
-    delta = ((target - current + 7) % 7) + 7;
-    if (delta > 14) delta -= 7;
+    // "Next Friday" means Friday in the next Monday-Sunday calendar week.
+    delta = 7 - ((current + 6) % 7) + ((target + 6) % 7);
   } else if (modifier === "this") {
     if (delta === 0) delta = 0;
   } else {
@@ -75,11 +78,17 @@ export function resolveDueDate(
   latestMessage: string,
   today: string,
 ): DateOutcome {
-  const text = `${modelRaw ?? ""} ${latestMessage}`.toLowerCase();
-  if (modelClaim === "no_deadline" || /\b(no\s*(deadline|rush|hurry)|whenever|no date|backlog|no target)\b/.test(text)) {
+  const text = (modelRaw ?? latestMessage).toLowerCase();
+  if (modelClaim === "no_deadline") {
     return { kind: "no_deadline" };
   }
-  if (modelIso && ISO_RE.test(modelIso) && modelIso >= today) {
+  // Prefer deterministic interpretation of explicit relative phrases to a
+  // plausible but incorrect model date. Never scan arbitrary issue numbers.
+  const relative = parseRelativeDate(text, today);
+  if (relative && !relative.ambiguous && modelClaim !== "ambiguous") {
+    return { kind: "resolved", iso: relative.iso };
+  }
+  if (modelIso && isValidIsoDate(modelIso) && modelClaim !== "unknown") {
     if (modelClaim === "ambiguous") {
       return { kind: "ambiguous", iso: modelIso, question: formatConfirmQuestion(modelIso) };
     }
@@ -132,20 +141,17 @@ function parseRelativeDate(text: string, today: string): { iso: string; ambiguou
     const modifier: "this" | "next" | "plain" = text.includes(`next ${day}`) ? "next" : text.includes(`this ${day}`) ? "this" : "plain";
     return { iso: nextWeekday(today, i, modifier), ambiguous: false };
   }
-  const ordinal = text.match(/\b(?:by\s+)?(?:the\s+)?(\d{1,2})(st|nd|rd|th)?\b/);
-  if (ordinal?.[1]) {
-    const dayNum = Number.parseInt(ordinal[1], 10);
+  const ordinal = text.match(/\b(?:by\s+(?:the\s+)?|the\s+)(\d{1,2})(?:st|nd|rd|th)?\b|\b(\d{1,2})(?:st|nd|rd|th)\b/);
+  if (ordinal && !monthMentioned(text)) {
+    const dayNum = Number.parseInt(ordinal[1] ?? ordinal[2] ?? "0", 10);
     if (dayNum >= 1 && dayNum <= 31) {
-      const [y, m, d] = today.split("-").map(Number) as [number, number, number];
-      const candidateThisMonth = `${y}-${String(m).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
-      if (candidateThisMonth >= today && dayNum >= (d ?? 1)) {
-        return { iso: candidateThisMonth, ambiguous: !monthMentioned(text) };
+      const [y, m] = today.split("-").map(Number) as [number, number];
+      for (let offset = 0; offset < 12; offset++) {
+        const candidate = new Date(Date.UTC(y, m - 1 + offset, dayNum));
+        if (candidate.getUTCDate() === dayNum && toIso(candidate) >= today) {
+          return { iso: toIso(candidate), ambiguous: true };
+        }
       }
-      const next = new Date(Date.UTC(y, m, 0)); // month rollover
-      next.setUTCMonth(next.getUTCMonth());
-      const nm = next.getUTCMonth() + 1;
-      const ny = next.getUTCFullYear();
-      return { iso: `${ny}-${String(nm).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`, ambiguous: !monthMentioned(text) };
     }
   }
   return null;

@@ -104,28 +104,29 @@ export interface ClarificationContext {
 }
 
 export function buildClarification(lang: Lang, ctx: ClarificationContext): string {
-  // Ambiguity always takes precedence: never silently guess.
+  const parts: string[] = [];
+  if (ctx.missingFields.includes("title")) parts.push(ASK_TITLE[lang]);
   if (ctx.assigneeProblem?.kind === "ambiguous" && ctx.assigneeProblem.options?.length) {
-    return ambigAssignee(lang, ctx.candidateName ?? "that name", ctx.assigneeProblem.options);
+    parts.push(ambigAssignee(lang, ctx.candidateName ?? "that name", ctx.assigneeProblem.options));
+  } else if (ctx.assigneeProblem?.kind === "not_found" && ctx.assigneeProblem.candidate) {
+    parts.push(notFound(lang, ctx.assigneeProblem.candidate, ctx.teamNames));
+  } else if (ctx.missingFields.includes("assignee")) {
+    if (ctx.missingFields.includes("due_date") && !ctx.ambiguousDateQuestion) {
+      parts.push(ASK_BOTH[lang]);
+      return parts.join(" ");
+    }
+    parts.push(ASK_ASSIGNEE[lang]);
   }
-  if (ctx.assigneeProblem?.kind === "not_found" && ctx.assigneeProblem.candidate) {
-    return notFound(lang, ctx.assigneeProblem.candidate, ctx.teamNames);
+  if (ctx.missingFields.includes("due_date")) {
+    const question = ctx.ambiguousDateQuestion;
+    const date = question?.replace(/^Did you mean /, "").replace(/\?$/, "");
+    const localized = date ? {
+      en: question, hi: `क्या आपका मतलब ${date} है?`, hinglish: `Kya aapka matlab ${date} hai?`,
+      es: `¿Te refieres a ${date}?`, ar: `هل تقصد ${date}؟`, zh: `你是指 ${date} 吗？`,
+    }[lang] : null;
+    parts.push(localized ?? ASK_DATE[lang]);
   }
-  if (ctx.ambiguousDateQuestion && ctx.missingFields.includes("due_date") && ctx.missingFields.length === 1) {
-    return ctx.ambiguousDateQuestion;
-  }
-  const needsAssignee = ctx.missingFields.includes("assignee");
-  const needsDate = ctx.missingFields.includes("due_date");
-  const needsTitle = ctx.missingFields.includes("title");
-  if (needsTitle && (needsAssignee || needsDate)) return ASK_TITLE[lang];
-  if (needsAssignee && needsDate) {
-    if (ctx.ambiguousDateQuestion) return `${ASK_ASSIGNEE[lang]} ${ctx.ambiguousDateQuestion}`;
-    return ASK_BOTH[lang];
-  }
-  if (needsAssignee) return ASK_ASSIGNEE[lang];
-  if (needsDate) return ctx.ambiguousDateQuestion ?? ASK_DATE[lang];
-  if (needsTitle) return ASK_TITLE[lang];
-  return ASK_BOTH[lang];
+  return parts.join(" ") || ASK_BOTH[lang];
 }
 
 function formatDue(iso: string | null): string {

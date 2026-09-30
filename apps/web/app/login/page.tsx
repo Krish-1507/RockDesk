@@ -7,6 +7,7 @@ import { motion } from "motion/react";
 import { ChatTeardropText, ShieldCheck, Translate } from "@phosphor-icons/react";
 import { createSupabaseBrowser, isPublicConfigOk } from "@/lib/supabase";
 import { CONFIG_HELP } from "@/components/config-error";
+import { authMe } from "@/lib/api-client";
 
 export default function LoginPage(): React.JSX.Element {
   const router = useRouter();
@@ -27,9 +28,14 @@ export default function LoginPage(): React.JSX.Element {
         setError(signInError.message);
         return;
       }
+      const me = await authMe();
+      if (me.role !== "admin") {
+        setError("This account does not have admin access.");
+        return;
+      }
       router.push("/admin");
-    } catch {
-      setError("Could not sign in. Please try again.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not sign in. Please try again.");
     } finally {
       setBusy(false);
     }

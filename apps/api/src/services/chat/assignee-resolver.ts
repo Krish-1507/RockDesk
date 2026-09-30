@@ -9,17 +9,6 @@ export type AssigneeOutcome =
   | { kind: "explicitly_unassigned" }
   | { kind: "unknown" };
 
-const UNASSIGNED_PATTERNS = [
-  "unassign", "no one", "nobody", "leave it", "backlog", "triage",
-  "afai", "koi nahi", "किसी को नहीं", "sin asignar", "sans assign",
-];
-
-function looksExplicitlyUnassigned(text: string | null): boolean {
-  if (!text) return false;
-  const lower = text.toLowerCase();
-  return UNASSIGNED_PATTERNS.some((p) => lower.includes(p));
-}
-
 /**
  * Backend-owned assignee resolution against database users.
  * The LLM may only suggest a candidate name; this function decides.
@@ -29,9 +18,9 @@ export async function resolveAssignee(
   db: SupabaseClient,
   candidate: string | null,
   modelClaim: "resolved" | "ambiguous" | "not_found" | "explicitly_unassigned" | "unknown",
-  latestMessage: string,
+  _latestMessage: string,
 ): Promise<AssigneeOutcome> {
-  if (modelClaim === "explicitly_unassigned" || looksExplicitlyUnassigned(latestMessage) || looksExplicitlyUnassigned(candidate)) {
+  if (modelClaim === "explicitly_unassigned") {
     return { kind: "explicitly_unassigned" };
   }
   const name = (candidate ?? "").trim();

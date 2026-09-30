@@ -125,7 +125,9 @@ export async function listTickets(db: SupabaseClient, filters: TicketFilters): P
     if (/^#?\d+$/.test(term.trim())) {
       query = query.eq("ticket_number", Number.parseInt(term.trim().replace("#", ""), 10));
     } else {
-      query = query.or(`title.ilike.%${term}%,description.ilike.%${term}%`);
+      // Quote PostgREST values so punctuation cannot alter the filter grammar.
+      const pattern = `"%${term.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/[%_]/g, "\\$&")}%"`;
+      query = query.or(`title.ilike.${pattern},description.ilike.${pattern}`);
     }
   }
   if (filters.status) query = query.eq("status", filters.status);

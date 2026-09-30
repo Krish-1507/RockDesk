@@ -22,7 +22,7 @@ function formatDue(iso: string | null): string {
 }
 
 export default function AdminDetailPage(): React.JSX.Element {
-  const { ready, configError } = useAdminGuard();
+  const { ready, configError, authError } = useAdminGuard();
   const params = useParams<{ id: string }>();
   const id = params.id;
   const [detail, setDetail] = useState<TicketDetail | null>(null);
@@ -90,7 +90,7 @@ export default function AdminDetailPage(): React.JSX.Element {
   if (!ready || loading) {
     return (
       <AppShell>
-        <div className="mx-auto max-w-5xl p-8">{configError ? <ConfigErrorBanner /> : <TableSkeleton rows={4} />}</div>
+        <div className="mx-auto max-w-5xl p-8">{authError ? <ErrorState message={authError} onRetry={() => window.location.reload()} /> : configError ? <ConfigErrorBanner /> : <TableSkeleton rows={4} />}</div>
       </AppShell>
     );
   }
