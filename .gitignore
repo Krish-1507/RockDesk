@@ -18,6 +18,11 @@ tmp/
 .env*
 
 # Internal prep docs: kept locally, not part of the submission.
+Complete_Documentation.md
 docs/Agents.md
 docs/ImplementationPlan.md
 docs/demo-script.md
+docs/README.md
+
+# Local agent state.
+.kilo/

@@ -18,7 +18,6 @@ The rule behind the build: the model suggests, the backend decides.
 | Chat login | none needed, the chat is public |
 | Assignable people | Priya Menon, Rahul Sharma, Rahul Verma, Amit Kumar, Neha Singh |
 | Demo video | `https://youtu.be/eS1Pqk6yo40` |
-| Demo walkthrough (script) | `Complete_Documentation.md`, section 16 |
 
 Rahul Sharma and Rahul Verma share a first name on purpose, so reviewers can test what happens with an ambiguous name.
 
@@ -94,15 +93,15 @@ The composer also has a microphone button that uses the browsers built in dictat
 
 Admin sign in goes through Supabase Auth. The browser holds the JWT, the API checks it on every admin call and loads your role from the profiles table. Anything that is not an admin gets a 403.
 
-## Project layout
+## Architecture
 
-```text
-apps/web         Next.js + TypeScript + Tailwind, the chat and admin UI
-apps/api         Express + TypeScript, the API that Vercel runs as functions
-packages/shared  Zod schemas and types that both sides import
-supabase/        SQL migrations in order, plus seed data
-docs/            design notes, the API guide, and the demo script
-```
+![RockDesk architecture](docs/architecture.svg)
+
+- `apps/web` is the Next.js chat and admin UI. Browser calls stay same origin through a proxy route.
+- `apps/api` is the Express API. It validates, decides, and persists. The model only suggests.
+- `packages/shared` holds the Zod schemas and types both sides import.
+- `supabase/` holds the ordered SQL migrations plus seed data.
+- `docs/` holds the API guide, architecture, database, and deployment notes.
 
 ## Environment variables
 
@@ -169,6 +168,5 @@ Every push runs lint, typecheck, and a production web build. API tests run too w
 
 ## Docs
 
-- `Complete_Documentation.md`, the full technical writeup including the demo walkthrough
 - `docs/API-guide.md`, every route and its contract
 - `docs/Architecture.md`, `docs/Database.md`, `docs/Deployment.md` for the rest
