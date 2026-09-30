@@ -344,6 +344,8 @@ credentials in the README, live health endpoint for smoke checks.
 
 ## 16. Demo walkthrough (silent, captioned)
 
+Recorded demo: https://youtu.be/eS1Pqk6yo40
+
 Record the browser at 1080p with click highlighting, fresh chat per shot,
 captions overlaid. This covers all 12 acceptance checks.
 

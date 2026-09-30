@@ -17,7 +17,8 @@ The rule behind the build: the model suggests, the backend decides.
 | Admin login | `admin@rockdesk.demo` / `RockDesk-Admin-2026` |
 | Chat login | none needed, the chat is public |
 | Assignable people | Priya Menon, Rahul Sharma, Rahul Verma, Amit Kumar, Neha Singh |
-| Demo walkthrough | `Complete_Documentation.md`, section 16 |
+| Demo video | `https://youtu.be/eS1Pqk6yo40` |
+| Demo walkthrough (script) | `Complete_Documentation.md`, section 16 |
 
 Rahul Sharma and Rahul Verma share a first name on purpose, so reviewers can test what happens with an ambiguous name.
 
