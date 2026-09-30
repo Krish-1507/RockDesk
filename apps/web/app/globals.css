@@ -22,6 +22,10 @@
   --radius-dialog: 16px;
   --font-sans: "Geist", "Geist Sans", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, monospace;
+  --shadow-warm-sm: 0 1px 2px rgba(21, 21, 18, 0.06), 0 2px 8px rgba(21, 21, 18, 0.06);
+  --shadow-warm-md: 0 2px 6px rgba(21, 21, 18, 0.07), 0 12px 32px -12px rgba(201, 74, 55, 0.18);
+  --shadow-warm-lg: 0 4px 12px rgba(21, 21, 18, 0.08), 0 24px 64px -20px rgba(21, 21, 18, 0.28);
+  --ease-out-expo: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 html {
@@ -48,6 +52,45 @@ body {
   border-radius: 4px;
 }
 
+/* Refined scrollbar — thin, warm, unobtrusive */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cfc9bc transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #cfc9bc;
+  border-radius: 99px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Film grain — fixed overlay, pointer-events-none, GPU-cheap */
+.grain::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+}
+
+/* Warm dotted blueprint texture for hero / empty states */
+.dot-grid {
+  background-image: radial-gradient(rgba(21, 21, 18, 0.1) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+.dot-grid-light {
+  background-image: radial-gradient(rgba(251, 250, 247, 0.14) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
 /* Restrained motion: transform + opacity only, respects reduced motion. */
 @keyframes message-in {
   from {
@@ -68,6 +111,55 @@ body {
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes float-soft {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes orb-drift {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(24px, -18px) scale(1.06);
+  }
+}
+
+@keyframes marquee-x {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes shimmer-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
   }
 }
 
@@ -104,11 +196,70 @@ body {
   animation-delay: 0.3s;
 }
 
+.animate-float-soft {
+  animation: float-soft 6s ease-in-out infinite;
+}
+
+.animate-orb-drift {
+  animation: orb-drift 11s ease-in-out infinite;
+}
+
+.animate-marquee {
+  animation: marquee-x 28s linear infinite;
+}
+
+.animate-pulse-ring {
+  animation: pulse-ring 1.8s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.skeleton-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(251, 250, 247, 0.7), transparent);
+  animation: shimmer-slide 1.6s ease-in-out infinite;
+}
+
+.card-lift {
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.2s ease;
+}
+.card-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 6px rgba(21, 21, 18, 0.07), 0 12px 32px -12px rgba(201, 74, 55, 0.18);
+}
+
+.btn-press {
+  transition: transform 0.12s ease, opacity 0.15s ease, background-color 0.15s ease, border-color 0.15s ease,
+    box-shadow 0.2s ease;
+}
+.btn-press:active {
+  transform: translateY(1px) scale(0.98);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-message-in,
   .animate-card-in,
+  .animate-float-soft,
+  .animate-orb-drift,
+  .animate-marquee,
+  .animate-pulse-ring,
   .typing-dot {
     animation: none;
+  }
+
+  .skeleton-shimmer::after {
+    animation: none;
+    display: none;
+  }
+
+  .card-lift:hover {
+    transform: none;
   }
 
   * {

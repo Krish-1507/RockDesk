@@ -86,7 +86,7 @@ export default function AdminListPage(): React.JSX.Element {
   }
 
   const selectCls =
-    "rounded-[10px] border border-[#BDB7AC] bg-white px-3 py-2 text-[13px] font-medium focus:border-[#151512] focus:outline-none";
+    "rounded-[10px] border border-[#BDB7AC] bg-white px-3 py-2 text-[13px] font-medium shadow-[0_1px_2px_rgba(21,21,18,0.05)] transition-colors focus:border-[#F0644E] focus:outline-none focus:shadow-[0_0_0_3px_#FBE1DB]";
 
   if (!ready) {
     return (
@@ -103,15 +103,26 @@ export default function AdminListPage(): React.JSX.Element {
       <div className="mx-auto max-w-6xl px-6 py-8 md:px-10">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-[#77736A]">Operations</p>
-            <h1 className="mt-1 text-[30px] font-semibold leading-[36px]">Tickets</h1>
+            <p className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[#77736A]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#F0644E]" aria-hidden="true" />
+              Operations
+            </p>
+            <h1 className="mt-1 text-[30px] font-semibold leading-[36px] tracking-[-0.02em]">Tickets</h1>
           </div>
-          <p className="font-mono text-[12px] text-[#77736A]">
-            {total} total · newest first
-          </p>
+          <div className="flex items-center gap-2.5">
+            <p className="rounded-full border border-[#D8D3C9] bg-[#FBFAF7] px-3 py-1 font-mono text-[12px] text-[#4E4C46]">
+              {total} total · newest first
+            </p>
+            <Link
+              href="/chat"
+              className="btn-press hidden rounded-[10px] bg-[#151512] px-3.5 py-1.5 text-[13px] font-semibold text-white hover:opacity-85 sm:inline-block"
+            >
+              New from chat
+            </Link>
+          </div>
         </div>
 
-        <div className="mt-6 flex flex-col gap-2.5 rounded-[14px] border border-[#D8D3C9] bg-[#FBFAF7] p-4 lg:flex-row lg:items-center">
+        <div className="mt-6 flex flex-col gap-2.5 rounded-[14px] border border-[#D8D3C9] bg-[#FBFAF7] p-4 shadow-[0_1px_2px_rgba(21,21,18,0.06),0_2px_8px_rgba(21,21,18,0.06)] lg:flex-row lg:items-center">
           <label className="relative flex-1">
             <MagnifyingGlass size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#77736A]" />
             <input
@@ -119,7 +130,7 @@ export default function AdminListPage(): React.JSX.Element {
               onChange={(e) => resetPageAndFetch(() => setSearch(e.target.value))}
               placeholder="Search title, description, or #number…"
               aria-label="Search tickets"
-              className="w-full rounded-[10px] border border-[#BDB7AC] bg-white py-2 pl-9 pr-3 text-[13px] focus:border-[#151512] focus:outline-none"
+              className="w-full rounded-[10px] border border-[#BDB7AC] bg-white py-2 pl-9 pr-3 text-[13px] shadow-[0_1px_2px_rgba(21,21,18,0.05)] transition-all focus:border-[#F0644E] focus:outline-none focus:shadow-[0_0_0_3px_#FBE1DB]"
             />
           </label>
           <div className="flex flex-wrap gap-2">
@@ -172,10 +183,10 @@ export default function AdminListPage(): React.JSX.Element {
             <EmptyState title="No tickets match these filters." body="Try widening the search or clearing a filter. New tickets from chat appear here instantly." />
           ) : (
             <>
-              <div className="overflow-x-auto rounded-[14px] border border-[#D8D3C9] bg-[#FBFAF7]">
+              <div className="overflow-x-auto rounded-[14px] border border-[#D8D3C9] bg-[#FBFAF7] shadow-[0_1px_2px_rgba(21,21,18,0.06),0_2px_8px_rgba(21,21,18,0.06)]">
                 <table className="w-full min-w-[820px] border-collapse text-left">
                   <thead>
-                    <tr className="border-b border-[#D8D3C9] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#77736A]">
+                    <tr className="border-b border-[#D8D3C9] bg-[#F5F3EE]/60 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#77736A]">
                       <th className="px-5 py-3">Ticket</th>
                       <th className="px-4 py-3">Status</th>
                       <th className="px-4 py-3">Assignee</th>
@@ -186,17 +197,20 @@ export default function AdminListPage(): React.JSX.Element {
                   </thead>
                   <tbody>
                     {items.map((t) => (
-                      <tr key={t.id} className="border-b border-[#D8D3C9] transition-colors duration-150 last:border-0 hover:bg-[#F5F3EE]">
+                      <tr key={t.id} className="group border-b border-[#D8D3C9] transition-colors duration-150 last:border-0 hover:bg-[#FDF1EE]/50">
                         <td className="px-5 py-3.5">
                           <Link href={`/admin/${t.id}`} className="block">
                             <span className="font-mono text-[12px] font-semibold text-[#C94A37]">#{t.ticketNumber}</span>
-                            <span className="block max-w-md truncate text-[14px] font-medium leading-[20px]">{t.title}</span>
+                            <span className="block max-w-md truncate text-[14px] font-medium leading-[20px] transition-colors group-hover:text-[#C94A37]">{t.title}</span>
                           </Link>
                         </td>
                         <td className="px-4 py-3.5"><StatusPill status={t.status} /></td>
                         <td className="px-4 py-3.5 text-[13px]">{t.assignee?.name ?? <span className="text-[#77736A]">Unassigned</span>}</td>
                         <td className="px-4 py-3.5"><PriorityPill priority={t.priority} /></td>
-                        <td className={`px-4 py-3.5 font-mono text-[12px] ${isOverdue(t) ? "font-semibold text-[#B83C34]" : ""}`}>{formatDue(t.dueDate)}</td>
+                        <td className={`px-4 py-3.5 font-mono text-[12px] ${isOverdue(t) ? "font-semibold text-[#B83C34]" : ""}`}>
+                          {isOverdue(t) && <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-[#B83C34]" aria-hidden="true" />}
+                          {formatDue(t.dueDate)}
+                        </td>
                         <td className="px-4 py-3.5 font-mono text-[12px] text-[#77736A]">{formatUpdated(t.updatedAt)}</td>
                       </tr>
                     ))}
@@ -204,21 +218,21 @@ export default function AdminListPage(): React.JSX.Element {
                 </table>
               </div>
               <div className="mt-4 flex items-center justify-between">
-                <p className="text-[12px] text-[#77736A]">
+                <p className="font-mono text-[12px] text-[#77736A]">
                   Page {page} of {totalPages}
                 </p>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={page <= 1}
-                    className="rounded-[10px] border border-[#BDB7AC] bg-[#FBFAF7] px-3.5 py-1.5 text-[13px] font-semibold disabled:opacity-40"
+                    className="btn-press rounded-[10px] border border-[#BDB7AC] bg-[#FBFAF7] px-3.5 py-1.5 text-[13px] font-semibold shadow-[0_1px_2px_rgba(21,21,18,0.05)] disabled:opacity-40"
                   >
                     Previous
                   </button>
                   <button
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={page >= totalPages}
-                    className="rounded-[10px] border border-[#BDB7AC] bg-[#FBFAF7] px-3.5 py-1.5 text-[13px] font-semibold disabled:opacity-40"
+                    className="btn-press rounded-[10px] border border-[#BDB7AC] bg-[#FBFAF7] px-3.5 py-1.5 text-[13px] font-semibold shadow-[0_1px_2px_rgba(21,21,18,0.05)] disabled:opacity-40"
                   >
                     Next
                   </button>

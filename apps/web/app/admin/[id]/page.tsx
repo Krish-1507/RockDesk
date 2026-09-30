@@ -107,18 +107,20 @@ export default function AdminDetailPage(): React.JSX.Element {
 
   const t = detail.ticket;
   const inputCls =
-    "w-full rounded-[10px] border border-[#BDB7AC] bg-white px-3 py-2 text-[13px] focus:border-[#151512] focus:outline-none";
+    "w-full rounded-[10px] border border-[#BDB7AC] bg-white px-3 py-2 text-[13px] shadow-[0_1px_2px_rgba(21,21,18,0.05)] transition-all focus:border-[#F0644E] focus:outline-none focus:shadow-[0_0_0_3px_#FBE1DB]";
 
   return (
     <AppShell>
       <div className="mx-auto max-w-5xl px-6 py-8 md:px-10">
-        <Link href="/admin" className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#77736A] hover:text-[#151512]">
-          <ArrowLeft size={14} /> All tickets
+        <Link href="/admin" className="group inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#77736A] transition-colors hover:text-[#151512]">
+          <ArrowLeft size={14} className="transition-transform duration-200 group-hover:-translate-x-0.5" /> All tickets
         </Link>
         <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="font-mono text-[12px] font-semibold text-[#C94A37]">#{t.ticketNumber}</p>
-            <h1 className="mt-1 max-w-2xl text-[24px] font-semibold leading-[30px]">{t.title}</h1>
+            <p className="inline-flex items-center gap-2 font-mono text-[12px] font-semibold text-[#C94A37]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#F0644E]" aria-hidden="true" />#{t.ticketNumber}
+            </p>
+            <h1 className="mt-1 max-w-2xl text-[26px] font-semibold leading-[32px] tracking-[-0.015em]">{t.title}</h1>
           </div>
           <div className="flex gap-1.5">
             <StatusPill status={t.status} />
@@ -128,14 +130,21 @@ export default function AdminDetailPage(): React.JSX.Element {
 
         <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_320px]">
           <div className="flex flex-col gap-4">
-            <section className="rounded-[14px] border border-[#D8D3C9] bg-[#FBFAF7] p-5">
+            <section className="card-lift rounded-[14px] border border-[#D8D3C9] bg-[#FBFAF7] p-5 shadow-[0_1px_2px_rgba(21,21,18,0.05)]">
               <FieldLabel>Description</FieldLabel>
               <p className="mt-2 text-[14px] leading-[22px]">{t.description}</p>
-              <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-[13px]">
-                <span><span className="text-[#77736A]">Due · </span><span className="font-medium">{formatDue(t.dueDate)}</span></span>
-                <span><span className="text-[#77736A]">Assignee · </span><span className="font-medium">{t.assignee?.name ?? "Unassigned"}</span></span>
-                <span><span className="text-[#77736A]">Language · </span><span className="font-mono text-[12px]">{t.language ?? "—"}</span></span>
-                <span><span className="text-[#77736A]">Source · </span><span className="font-medium">{t.sourceType}</span></span>
+              <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                {[
+                  ["Due", formatDue(t.dueDate), false],
+                  ["Assignee", t.assignee?.name ?? "Unassigned", false],
+                  ["Language", t.language ?? "—", true],
+                  ["Source", t.sourceType, false],
+                ].map(([label, value, mono]) => (
+                  <div key={label as string} className="rounded-[10px] border border-[#D8D3C9] bg-white/60 px-3 py-2">
+                    <p className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-[#77736A]">{label}</p>
+                    <p className={`mt-0.5 truncate text-[13px] font-medium ${mono ? "font-mono text-[12px]" : ""}`}>{value}</p>
+                  </div>
+                ))}
               </div>
               {t.tags.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-1.5">
@@ -146,9 +155,9 @@ export default function AdminDetailPage(): React.JSX.Element {
               )}
             </section>
 
-            <section className="rounded-[14px] border border-[#D8D3C9] bg-[#FBFAF7] p-5">
+            <section className="rounded-[14px] border border-[#D8D3C9] bg-[#FBFAF7] p-5 shadow-[0_1px_2px_rgba(21,21,18,0.05)]">
               <FieldLabel>Original chat message</FieldLabel>
-              <blockquote className="mt-2 border-l-2 border-[#F0644E] pl-3 text-[14px] leading-[22px] text-[#4E4C46]">
+              <blockquote className="mt-2 rounded-r-[10px] border-l-2 border-[#F0644E] bg-[#FDF1EE]/60 py-2 pl-3 pr-3 text-[14px] leading-[22px] text-[#4E4C46]">
                 {t.sourceMessage ?? "No source message recorded."}
               </blockquote>
               {t.originalTitle && t.originalTitle !== t.sourceMessage && (
@@ -157,17 +166,18 @@ export default function AdminDetailPage(): React.JSX.Element {
             </section>
 
             {detail.events.length > 0 && (
-              <section className="rounded-[14px] border border-[#D8D3C9] bg-[#FBFAF7] p-5">
+              <section className="rounded-[14px] border border-[#D8D3C9] bg-[#FBFAF7] p-5 shadow-[0_1px_2px_rgba(21,21,18,0.05)]">
                 <FieldLabel>Activity</FieldLabel>
-                <ul className="mt-2 flex flex-col gap-2">
+                <ul className="relative mt-3 flex flex-col gap-3.5 before:absolute before:bottom-2 before:left-[5px] before:top-2 before:w-px before:bg-[#D8D3C9]">
                   {detail.events.map((e) => (
-                    <li key={e.id} className="flex items-baseline gap-2 text-[13px]">
-                      <span className="font-mono text-[11px] text-[#77736A]">
+                    <li key={e.id} className="relative flex items-baseline gap-3 pl-5 text-[13px]">
+                      <span className="absolute left-0 top-1.5 h-[11px] w-[11px] rounded-full border-2 border-[#FBFAF7] bg-[#F0644E] shadow" aria-hidden="true" />
+                      <span className="shrink-0 font-mono text-[11px] text-[#77736A]">
                         {new Date(e.createdAt).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                       </span>
                       <span className="font-semibold">{e.eventType.replace(/_/g, " ")}</span>
                       {Object.keys(e.metadata).length > 0 && (
-                        <span className="text-[#77736A]">{JSON.stringify(e.metadata)}</span>
+                        <span className="truncate font-mono text-[11px] text-[#77736A]">{JSON.stringify(e.metadata)}</span>
                       )}
                     </li>
                   ))}
@@ -176,7 +186,7 @@ export default function AdminDetailPage(): React.JSX.Element {
             )}
           </div>
 
-          <aside className="h-fit rounded-[14px] border border-[#D8D3C9] bg-[#FBFAF7] p-5 lg:sticky lg:top-6">
+          <aside className="h-fit rounded-[14px] border border-[#D8D3C9] bg-[#FBFAF7] p-5 shadow-[0_1px_2px_rgba(21,21,18,0.06),0_2px_8px_rgba(21,21,18,0.06)] lg:sticky lg:top-6">
             <FieldLabel>Edit ticket</FieldLabel>
             <div className="mt-3 flex flex-col gap-3">
               <label className="block">
@@ -211,11 +221,11 @@ export default function AdminDetailPage(): React.JSX.Element {
               <button
                 onClick={save}
                 disabled={saving}
-                className="mt-1 rounded-[10px] bg-[#151512] py-2.5 text-[13px] font-semibold text-white transition-opacity duration-150 hover:opacity-85 disabled:opacity-50"
+                className="btn-press mt-1 rounded-[10px] bg-[#151512] py-2.5 text-[13px] font-semibold text-white shadow-[0_6px_16px_-6px_rgba(21,21,18,0.5)] transition-opacity duration-150 hover:opacity-85 disabled:opacity-50"
               >
                 {saving ? "Saving…" : "Save changes"}
               </button>
-              {savedNote && <p className="text-[12px] text-[#4E4C46]" role="status">{savedNote}</p>}
+              {savedNote && <p className={`rounded-[10px] px-3 py-2 text-[12px] font-medium ${savedNote.includes("Could not") ? "bg-[#FDF1EE] text-[#B83C34]" : "bg-[#E3EEE6] text-[#3E7650]"}`} role="status">{savedNote}</p>}
             </div>
           </aside>
         </div>

@@ -25,7 +25,7 @@ export default function TicketCard({ ticket, linkToAdmin }: { ticket: TicketCard
           <PriorityPill priority={ticket.priority} />
         </span>
       </div>
-      <div className="mt-2 text-[16px] font-semibold leading-[22px]">{ticket.title}</div>
+      <div className="mt-2 text-[16px] font-semibold leading-[22px] tracking-tight">{ticket.title}</div>
       <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[13px] text-[#4E4C46]">
         <span>
           <span className="text-[#77736A]">Assignee · </span>
@@ -33,19 +33,20 @@ export default function TicketCard({ ticket, linkToAdmin }: { ticket: TicketCard
         </span>
         <span>
           <span className="text-[#77736A]">Due · </span>
-          <span className="font-medium text-[#151512]">{formatDue(ticket.dueDate)}</span>
+          <span className="font-mono text-[12.5px] font-medium text-[#151512]">{formatDue(ticket.dueDate)}</span>
         </span>
       </div>
       {linkToAdmin && (
-        <span className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#C94A37]">
-          Open in admin <ArrowRight size={14} />
+        <span className="group/link mt-3 inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#C94A37]">
+          Open in admin
+          <ArrowRight size={14} className="transition-transform duration-200 group-hover/link:translate-x-1" />
         </span>
       )}
     </>
   );
 
   const cls =
-    "block rounded-[14px] border border-[#BDB7AC] border-l-4 border-l-[#F0644E] bg-[#FBFAF7] p-5 transition-colors duration-150 hover:border-[#F0644E]";
+    "group block rounded-[14px] border border-[#D8D3C9] border-l-4 border-l-[#F0644E] bg-[#FBFAF7] p-5 shadow-[0_1px_2px_rgba(21,21,18,0.06),0_2px_8px_rgba(21,21,18,0.06)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[#E7B9AE] hover:shadow-[0_2px_6px_rgba(21,21,18,0.07),0_12px_32px_-12px_rgba(201,74,55,0.25)]";
 
   const animated = (
     <motion.div
