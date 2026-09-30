@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "node -e \"process.exit(0)\"",
-  "buildCommand": "node -e \"process.exit(0)\"",
+  "installCommand": "npm install",
+  "buildCommand": "node ./scripts/vercel-api-build.mjs",
   "outputDirectory": "api",
   "rewrites": [{ "source": "/api/(.*)", "destination": "/api/index" }]
 }
