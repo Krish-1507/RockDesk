@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "eslint src tests api",
     "test": "vitest run",
-    "bundle": "esbuild api/index.mjs --bundle --platform=node --format=cjs --outfile=api/bundle.cjs --log-level=warning",
+    "bundle": "node ../../scripts/esbuild-bundle.mjs",
     "predev": "npm run sync-shared --silent",
     "pretest": "npm run sync-shared --silent",
     "prebuild": "npm run sync-shared --silent",
