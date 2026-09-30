@@ -207,6 +207,18 @@ export async function updateTicket(
   return getTicketById(db, id);
 }
 
+/**
+ * Deletes a ticket by id. Activity rows go away automatically through
+ * `on delete cascade`. Returns false when the ticket does not exist.
+ */
+export async function deleteTicket(db: SupabaseClient, id: string): Promise<boolean> {
+  const existing = await getTicketById(db, id);
+  if (!existing) return false;
+  const { error } = await db.from("tickets").delete().eq("id", id);
+  if (error) throw error;
+  return true;
+}
+
 export async function listTicketEvents(
   db: SupabaseClient,
   ticketId: string,

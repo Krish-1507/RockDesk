@@ -11,13 +11,28 @@ export function Rise({
   delay = 0,
   className,
   y = 14,
+  immediate = false,
 }: {
   children: ReactNode;
   delay?: number;
   className?: string;
   y?: number;
+  /** Above-the-fold content: animate on mount instead of waiting for the scroll observer. */
+  immediate?: boolean;
 }): React.JSX.Element {
   const reduce = useReducedMotion();
+  if (immediate) {
+    return (
+      <motion.div
+        className={className}
+        initial={reduce ? { opacity: 0 } : { opacity: 0, y }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay, ease: EASE }}
+      >
+        {children}
+      </motion.div>
+    );
+  }
   return (
     <motion.div
       className={className}

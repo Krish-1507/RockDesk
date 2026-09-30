@@ -172,6 +172,11 @@ export async function patchTicket(id: string, patch: Record<string, unknown>): P
   return parse<{ ticket: TicketListItem }>(res);
 }
 
+export async function deleteTicket(id: string): Promise<{ deleted: boolean }> {
+  const res = await authed(`/api/tickets/by-id?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+  return parse<{ deleted: boolean }>(res);
+}
+
 export interface DirectoryUser {
   id: string;
   name: string;

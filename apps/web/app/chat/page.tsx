@@ -1,16 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
-import {
-  ArrowUpRight,
-  ChatTeardropText,
-  PaperPlaneRight,
-  Plus,
-  Sparkle,
-  UserCircle,
-  WarningCircle,
-} from "@phosphor-icons/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { PaperPlaneRight, Plus, UserCircle, WarningCircle } from "@phosphor-icons/react";
 import AppShell from "@/components/app-shell";
 import TicketCard from "@/components/ticket-card";
 import { FieldLabel, MetaPill } from "@/components/pills";
@@ -42,8 +34,6 @@ interface SavedSession {
 const SESSIONS_KEY = "rockdesk.sessions";
 const ACTIVE_KEY = "rockdesk.activeSession";
 
-const LANG_CHIPS = ["English", "हिन्दी", "Hinglish", "Español", "العربية", "中文"];
-
 function loadSessions(): SavedSession[] {
   try {
     const raw = localStorage.getItem(SESSIONS_KEY);
@@ -64,24 +54,19 @@ function firstLine(text: string, max = 42): string {
   return line.length > max ? `${line.slice(0, max)}…` : line;
 }
 
-function stateLabel(draft: DraftView | null, sending: boolean): { text: string; live: boolean } {
-  if (sending) return { text: "Reading your message", live: true };
-  if (!draft) return { text: "Idle — describe an issue", live: false };
-  const missing = draft.missingFields.length;
-  if (missing === 0) return { text: "Draft ready", live: true };
-  return { text: `Draft — waiting on ${draft.missingFields.join(", ").replace(/_/g, " ")}`, live: true };
+function stateText(draft: DraftView | null, sending: boolean): string {
+  if (sending) return "Reading your message…";
+  if (!draft) return "Idle — describe an issue";
+  if (draft.missingFields.length === 0) return "Draft ready — reply to confirm";
+  return `Waiting on ${draft.missingFields.join(", ").replace(/_/g, " ")}`;
 }
 
-function draftProgress(draft: DraftView | null): number {
-  if (!draft) return 0;
-  const parts = [
-    draft.title ? 1 : 0,
-    draft.assigneeName ?? draft.assigneeId ? 1 : 0,
-    draft.dueDate ? 1 : 0,
-    draft.priority ? 1 : 0,
-  ];
-  return Math.round((parts.reduce((a, b) => a + b, 0) / parts.length) * 100);
-}
+const PLACEHOLDER_EXAMPLES = [
+  "Describe an issue or task…",
+  "Try: Checkout 500s — Priya to fix by Friday, high priority…",
+  "Try: Login crashes on Safari, resolve by the 4th…",
+  "Try: Search is wrong, Rahul to fix by tomorrow…",
+];
 
 export default function ChatPage(): React.JSX.Element {
   const [sessions, setSessions] = useState<SavedSession[]>([]);
@@ -227,65 +212,60 @@ export default function ChatPage(): React.JSX.Element {
     }
   }
 
-  const status = stateLabel(draft, sending);
+  const reduceMotion = useReducedMotion();
+  const [composerFocused, setComposerFocused] = useState(false);
+  const [phIndex, setPhIndex] = useState(0);
+
+  useEffect(() => {
+    if (reduceMotion || input !== "" || composerFocused) return;
+    const t = setInterval(() => setPhIndex((i) => (i + 1) % PLACEHOLDER_EXAMPLES.length), 4500);
+    return () => clearInterval(t);
+  }, [reduceMotion, input, composerFocused]);
+
   const showRail = draft !== null;
-  const progress = draftProgress(draft);
+  const canSend = input.trim() !== "" && !sending && !booting && sessionToken !== null;
+  const placeholder = PLACEHOLDER_EXAMPLES[phIndex] ?? "Describe an issue or task…";
 
   return (
     <AppShell>
       <div className="flex min-h-dvh flex-col lg:h-dvh lg:flex-row">
         {/* Session list */}
-        <div className="hidden w-64 shrink-0 flex-col border-r border-[#D8D3C9] bg-[#FBFAF7] lg:flex">
-          <div className="flex items-center justify-between px-4 pb-2 pt-5">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#77736A]">
-              Conversations
-            </span>
+        <div className="hidden w-60 shrink-0 flex-col border-r border-[#D8D3C9] bg-[#FBFAF7] lg:flex">
+          <div className="flex items-center justify-between px-4 pb-1 pt-5">
+            <span className="text-[12px] font-semibold text-[#4E4C46]">Conversations</span>
             <button
               onClick={startNewSession}
-              className="btn-press flex items-center gap-1 rounded-lg bg-[#151512] px-2.5 py-1.5 text-[12px] font-semibold text-white hover:opacity-85"
+              className="flex items-center gap-1 rounded-md px-2 py-1 text-[12px] font-semibold text-[#C94A37] transition-colors duration-150 hover:bg-[#FBE1DB]"
               aria-label="Start a new conversation"
             >
-              <Plus size={14} weight="bold" /> New
+              <Plus size={13} weight="bold" /> New
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto px-2 pb-4">
+          <div className="flex-1 overflow-y-auto px-2 py-2">
             {sessions.map((s) => {
               const active = s.id === sessionId;
               return (
                 <button
                   key={s.id}
                   onClick={() => void activateSession(s.id, s.token, s.title)}
-                  className={`relative mb-1 flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-left transition-all duration-150 ${
-                    active
-                      ? "bg-[#151512] text-[#FBFAF7] shadow-[0_6px_16px_-6px_rgba(21,21,18,0.5)]"
-                      : "text-[#4E4C46] hover:bg-[#EFECE5] hover:text-[#151512]"
+                  aria-current={active ? "true" : undefined}
+                  className={`mb-0.5 block w-full rounded-lg px-3 py-2 text-left transition-colors duration-150 ${
+                    active ? "bg-[#EFECE5]" : "hover:bg-[#EFECE5]/60"
                   }`}
                 >
-                  <ChatTeardropText
-                    size={16}
-                    weight={active ? "fill" : "regular"}
-                    className={`shrink-0 ${active ? "text-[#F0644E]" : "text-[#BDB7AC]"}`}
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13px] font-medium">{s.title}</span>
-                    <span className={`font-mono text-[10px] ${active ? "text-[#BDB7AC]" : "text-[#77736A]"}`}>
-                      {new Date(s.updatedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
-                    </span>
+                  <span className={`block truncate text-[13px] ${active ? "font-semibold text-[#151512]" : "font-medium text-[#4E4C46]"}`}>
+                    {s.title}
                   </span>
-                  {active && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#F0644E]" aria-hidden="true" />}
+                  <span className="font-mono text-[10.5px] text-[#77736A]">
+                    {new Date(s.updatedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                  </span>
                 </button>
               );
             })}
             {sessions.length === 0 && !booting && (
-              <div className="rounded-[10px] border border-dashed border-[#BDB7AC] px-3 py-4 text-center">
-                <p className="text-[13px] font-medium text-[#4E4C46]">No conversations yet</p>
-                <p className="mt-0.5 text-[12px] text-[#77736A]">Start one to file your first ticket.</p>
-              </div>
+              <p className="px-3 py-2 text-[13px] text-[#77736A]">No conversations yet.</p>
             )}
           </div>
-          <p className="border-t border-[#D8D3C9] px-4 py-3 font-mono text-[10px] uppercase tracking-[0.1em] text-[#77736A]">
-            Drafts persist · serverless-safe
-          </p>
         </div>
 
         {/* Conversation */}
@@ -307,44 +287,18 @@ export default function ChatPage(): React.JSX.Element {
             <button
               onClick={startNewSession}
               aria-label="Start a new conversation"
-              className="btn-press flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[#F0644E] text-white shadow-[0_4px_14px_-4px_rgba(240,100,78,0.6)] hover:bg-[#C94A37]"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[#F0644E] text-white"
             >
               <Plus size={16} weight="bold" />
             </button>
           </div>
 
-          <div
-            className="relative flex items-center gap-2.5 border-b border-[#D8D3C9] bg-[#FBFAF7]/90 px-6 py-3 backdrop-blur md:px-10"
-            aria-live="polite"
-          >
-            <span className="relative flex h-2 w-2 shrink-0">
-              {status.live && (
-                <span className="animate-pulse-ring absolute h-full w-full rounded-full bg-[#F0644E]" />
-              )}
-              <span className={`relative inline-flex h-2 w-2 rounded-full ${status.live ? "bg-[#F0644E]" : "bg-[#BDB7AC]"}`} />
-            </span>
-            <p className="min-w-0 flex-1 truncate text-[12px] font-medium text-[#77736A]">{status.text}</p>
-            {showRail && (
-              <span className="hidden items-center gap-2 sm:flex" aria-hidden="true">
-                <span className="h-1 w-24 overflow-hidden rounded-full bg-[#EFECE5]">
-                  <motion.span
-                    className="block h-full rounded-full bg-[#F0644E]"
-                    initial={false}
-                    animate={{ width: `${progress}%` }}
-                    transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                  />
-                </span>
-                <span className="font-mono text-[11px] text-[#77736A]">{progress}%</span>
-              </span>
-            )}
-          </div>
+          <p className="border-b border-[#D8D3C9] px-6 py-3 text-[12px] text-[#77736A] md:px-10" aria-live="polite">
+            {stateText(draft, sending)}
+          </p>
 
-          <div ref={scrollRef} className="relative flex-1 overflow-y-auto px-6 py-6 md:px-10">
-            <div
-              aria-hidden="true"
-              className="dot-grid pointer-events-none absolute inset-x-0 top-0 h-56 opacity-40 [mask-image:linear-gradient(to_bottom,black,transparent)]"
-            />
-            <div className="relative mx-auto flex max-w-2xl flex-col gap-3">
+          <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-6 md:px-10">
+            <div className="mx-auto flex max-w-2xl flex-col gap-3">
               {booting && (
                 <div className="flex gap-2 py-6" aria-label="Loading">
                   {[0, 1, 2].map((i) => (
@@ -355,32 +309,20 @@ export default function ChatPage(): React.JSX.Element {
               {!booting && messages.length === 0 && (
                 <div>
                   <motion.div
-                    initial={{ opacity: 0, y: 14 }}
+                    initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                    transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
                   >
-                    <p className="inline-flex items-center gap-1.5 rounded-full border border-[#E7B9AE] bg-[#FDF1EE] px-2.5 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[0.12em] text-[#C94A37]">
-                      <Sparkle size={12} weight="fill" /> 6 languages · 0 forms
-                    </p>
-                    <h1 className="mt-3 text-[28px] font-semibold leading-[34px] tracking-[-0.02em]">
+                    <h1 className="text-[24px] font-semibold leading-[30px] tracking-[-0.01em]">
                       What needs doing?
                     </h1>
-                    <p className="mt-1.5 max-w-xl text-[13px] leading-[20px] text-[#77736A]">
-                      Describe the issue in your own words and language. I&apos;ll draft the ticket and ask only
-                      for what&apos;s missing.
+                    <p className="mt-1.5 max-w-xl text-[13.5px] leading-[21px] text-[#4E4C46]">
+                      Describe the issue in your own words and language — English, Hindi, Hinglish,
+                      Spanish, Arabic, or Chinese. I&apos;ll draft the ticket and ask only for what&apos;s missing.
                     </p>
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {LANG_CHIPS.map((l) => (
-                        <span
-                          key={l}
-                          className="rounded-full border border-[#D8D3C9] bg-[#FBFAF7] px-2.5 py-0.5 text-[11.5px] font-medium text-[#4E4C46]"
-                        >
-                          {l}
-                        </span>
-                      ))}
-                    </div>
                   </motion.div>
                   <div className="mt-5 flex flex-col gap-2">
+                    <p className="text-[12px] font-medium text-[#77736A]">Try one of these</p>
                     {[
                       "Checkout page is throwing 500 errors for some users. Priya will fix it by Friday, high priority.",
                       "Login page crashes on Safari, this will be resolved by the 4th.",
@@ -388,20 +330,13 @@ export default function ChatPage(): React.JSX.Element {
                     ].map((example, i) => (
                       <motion.button
                         key={example}
-                        initial={{ opacity: 0, y: 10 }}
+                        initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.12 + i * 0.07, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                        transition={{ delay: 0.08 + i * 0.06, duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
                         onClick={() => void send(example)}
-                        className="group flex items-start gap-3 rounded-[14px] border border-[#D8D3C9] bg-[#FBFAF7] px-4 py-3 text-left text-[13px] leading-[20px] text-[#4E4C46] shadow-[0_1px_2px_rgba(21,21,18,0.05)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[#F0644E] hover:text-[#151512] hover:shadow-[0_2px_6px_rgba(21,21,18,0.07),0_12px_32px_-12px_rgba(201,74,55,0.25)]"
+                        className="rounded-[10px] border border-[#D8D3C9] bg-[#FBFAF7] px-3.5 py-2.5 text-left text-[13px] leading-[20px] text-[#4E4C46] transition-colors duration-150 hover:border-[#BDB7AC] hover:bg-white hover:text-[#151512]"
                       >
-                        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[#EFECE5] font-mono text-[11px] font-bold transition-colors group-hover:bg-[#F0644E] group-hover:text-white">
-                          {i + 1}
-                        </span>
-                        <span className="flex-1">{example}</span>
-                        <ArrowUpRight
-                          size={15}
-                          className="mt-1 shrink-0 text-[#BDB7AC] transition-all group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-[#F0644E]"
-                        />
+                        {example}
                       </motion.button>
                     ))}
                   </div>
@@ -412,24 +347,24 @@ export default function ChatPage(): React.JSX.Element {
                   m.role === "user" ? (
                     <motion.div
                       key={m.id}
-                      initial={{ opacity: 0, y: 8 }}
+                      initial={{ opacity: 0, y: 6 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                      transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
                       className="flex justify-end"
                     >
-                      <div className="max-w-[85%] rounded-[14px] rounded-br-[6px] bg-[#151512] px-4 py-2.5 text-[14px] leading-[21px] text-[#FBFAF7] shadow-[0_8px_20px_-10px_rgba(21,21,18,0.5)]">
+                      <div className="max-w-[85%] rounded-[14px] rounded-br-[6px] bg-[#151512] px-4 py-2.5 text-[14px] leading-[21px] text-[#FBFAF7]">
                         {m.content}
                       </div>
                     </motion.div>
                   ) : (
                     <motion.div
                       key={m.id}
-                      initial={{ opacity: 0, y: 8 }}
+                      initial={{ opacity: 0, y: 6 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                      transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
                       className="flex flex-col gap-2.5"
                     >
-                      <div className="max-w-[92%] rounded-[14px] rounded-bl-[6px] border border-[#D8D3C9] bg-[#FBFAF7] px-4 py-2.5 text-[14px] leading-[21px] shadow-[0_1px_2px_rgba(21,21,18,0.05)]">
+                      <div className="max-w-[92%] rounded-[14px] rounded-bl-[6px] border border-[#D8D3C9] bg-[#FBFAF7] px-4 py-2.5 text-[14px] leading-[21px]">
                         {m.content}
                       </div>
                       {m.options && m.options.length > 0 && (
@@ -439,9 +374,9 @@ export default function ChatPage(): React.JSX.Element {
                               key={o.id}
                               onClick={() => void send(o.name)}
                               disabled={sending}
-                              className="btn-press flex items-center gap-2.5 rounded-[14px] border border-[#D8D3C9] bg-[#FBFAF7] p-3 text-left shadow-[0_1px_2px_rgba(21,21,18,0.05)] transition-all duration-150 hover:-translate-y-px hover:border-[#F0644E] hover:bg-[#FDF1EE] hover:shadow-[0_8px_20px_-10px_rgba(201,74,55,0.4)] disabled:opacity-60"
+                              className="flex items-center gap-2.5 rounded-[12px] border border-[#D8D3C9] bg-[#FBFAF7] p-3 text-left transition-colors duration-150 hover:border-[#BDB7AC] hover:bg-white disabled:opacity-60"
                             >
-                              <UserCircle size={26} className="shrink-0 text-[#77736A]" />
+                              <UserCircle size={24} className="shrink-0 text-[#77736A]" />
                               <span>
                                 <span className="block text-[14px] font-semibold leading-5">{o.name}</span>
                                 {o.department && (
@@ -458,61 +393,68 @@ export default function ChatPage(): React.JSX.Element {
                 )}
               </AnimatePresence>
               {sending && (
-                <div className="flex items-center gap-2.5 px-1 py-2" aria-label="Assistant is typing">
-                  <span className="flex gap-1.5">
-                    {[0, 1, 2].map((i) => (
-                      <span key={i} className="typing-dot h-1.5 w-1.5 rounded-full bg-[#77736A]" />
-                    ))}
-                  </span>
-                  <span className="font-mono text-[11px] text-[#77736A]">DRAFTING TICKET…</span>
+                <div className="flex gap-2 px-1 py-2" aria-label="Assistant is typing">
+                  {[0, 1, 2].map((i) => (
+                    <span key={i} className="typing-dot h-1.5 w-1.5 rounded-full bg-[#77736A]" />
+                  ))}
                 </div>
               )}
               {error && (
-                <motion.div
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex items-start gap-2.5 rounded-[10px] border border-[#E5B3AC] bg-[#FDF1EE] px-4 py-2.5 text-[13px] text-[#B83C34]"
-                >
+                <div className="flex items-start gap-2 rounded-[10px] border border-[#E5B3AC] bg-[#FDF1EE] px-4 py-2.5 text-[13px] text-[#B83C34]">
                   <WarningCircle size={16} weight="fill" className="mt-0.5 shrink-0" />
                   {error}
-                </motion.div>
+                </div>
               )}
             </div>
           </div>
 
           {/* Composer */}
-          <div className="border-t border-[#D8D3C9] bg-[#FBFAF7]/95 px-6 py-4 backdrop-blur md:px-10">
+          <div className="border-t border-[#D8D3C9] bg-[#FBFAF7] px-6 py-4 md:px-10">
             <div className="mx-auto max-w-2xl">
-              <div className="flex items-end gap-2 rounded-[14px] border border-[#BDB7AC] bg-white px-3.5 py-2.5 shadow-[0_1px_2px_rgba(21,21,18,0.06)] transition-all duration-200 focus-within:-translate-y-px focus-within:border-[#F0644E] focus-within:shadow-[0_0_0_3px_#FBE1DB,0_8px_24px_-12px_rgba(240,100,78,0.5)]">
-                <textarea
-                  ref={textareaRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={onComposerKey}
-                  rows={1}
-                  placeholder="Describe an issue or task…"
-                  aria-label="Chat message"
-                  className="max-h-32 flex-1 resize-none overflow-y-auto bg-transparent text-[14px] leading-[22px] placeholder:text-[#77736A] focus:outline-none"
-                />
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  whileHover={input.trim() ? { scale: 1.04 } : undefined}
-                  onClick={() => void send(input)}
-                  disabled={sending || booting || !sessionToken || !input.trim()}
-                  aria-label="Send message"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[#F0644E] text-white shadow-[0_4px_14px_-4px_rgba(240,100,78,0.7)] transition-colors duration-150 hover:bg-[#C94A37] disabled:cursor-not-allowed disabled:bg-[#D8D3C9] disabled:shadow-none"
-                >
-                  <PaperPlaneRight size={17} weight="fill" />
-                </motion.button>
+              <div className="rounded-[16px] border border-[#D8D3C9] bg-white px-4 py-3 shadow-[0_1px_2px_rgba(21,21,18,0.06)] transition-all duration-200 focus-within:border-[#F0644E] focus-within:shadow-[0_0_0_3px_#FBE1DB,0_12px_28px_-16px_rgba(240,100,78,0.55)]">
+                {draft?.title ? (
+                  <div className="flex min-w-0 items-center gap-2 border-b border-[#EFECE5] pb-2">
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#F0644E]" aria-hidden="true" />
+                    <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-[#4E4C46]">
+                      {draft.title}
+                    </span>
+                    {draft.missingFields.length > 0 && (
+                      <span className="shrink-0 text-[11.5px] text-[#77736A]">
+                        needs {draft.missingFields[0]?.replace(/_/g, " ")}
+                        {draft.missingFields.length > 1 ? ` +${draft.missingFields.length - 1}` : ""}
+                      </span>
+                    )}
+                  </div>
+                ) : null}
+                <div className="flex items-end gap-2 pt-2">
+                  <textarea
+                    ref={textareaRef}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={onComposerKey}
+                    onFocus={() => setComposerFocused(true)}
+                    onBlur={() => setComposerFocused(false)}
+                    rows={1}
+                    placeholder={placeholder}
+                    aria-label="Chat message"
+                    className="max-h-32 min-h-[36px] flex-1 resize-none overflow-y-auto bg-transparent py-1.5 text-[14px] leading-[22px] placeholder:text-[#a09a8e] focus:outline-none"
+                  />
+                  <motion.button
+                    whileTap={{ scale: 0.88 }}
+                    whileHover={canSend ? { scale: 1.06 } : undefined}
+                    onClick={() => void send(input)}
+                    disabled={!canSend}
+                    aria-label="Send message"
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors duration-150 ${
+                      canSend ? "bg-[#F0644E] text-white hover:bg-[#C94A37]" : "cursor-not-allowed bg-[#EFECE5] text-[#BDB7AC]"
+                    }`}
+                  >
+                    <PaperPlaneRight size={16} weight="fill" />
+                  </motion.button>
+                </div>
               </div>
-              <p className="mt-2 flex flex-wrap items-center gap-x-3 text-[11px] text-[#77736A]">
-                <span>
-                  <kbd className="rounded border border-[#D8D3C9] bg-white px-1.5 py-0.5 font-mono text-[10px]">Enter</kbd> sends
-                </span>
-                <span>
-                  <kbd className="rounded border border-[#D8D3C9] bg-white px-1.5 py-0.5 font-mono text-[10px]">Shift+Enter</kbd> new line
-                </span>
-                <span>Type “forget it” to discard a draft</span>
+              <p className="mt-2 text-[11.5px] text-[#77736A]">
+                Enter to send · Shift+Enter for a new line · Type “forget it” to discard a draft
               </p>
             </div>
           </div>
@@ -523,75 +465,50 @@ export default function ChatPage(): React.JSX.Element {
           {showRail && draft && (
             <motion.aside
               key="draft-rail"
-              initial={{ opacity: 0, x: 24 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 24 }}
-              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-              className="flex w-full shrink-0 flex-col border-t border-[#D8D3C9] bg-[#FBFAF7] lg:w-80 lg:border-l lg:border-t-0"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="w-full shrink-0 border-t border-[#D8D3C9] bg-[#FBFAF7] px-5 py-5 lg:w-72 lg:border-l lg:border-t-0 lg:overflow-y-auto"
             >
-              <div className="px-5 pb-2 pt-5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#77736A]">
-                    Draft ticket
-                  </span>
-                  <span className="rounded-full bg-[#EFECE5] px-2 py-0.5 font-mono text-[10.5px] font-semibold text-[#4E4C46]">
-                    {progress}%
-                  </span>
+              <p className="text-[12px] font-semibold text-[#4E4C46]">Draft ticket</p>
+              <h2 className="mt-1 text-[15px] font-semibold leading-[21px] tracking-tight">
+                {draft.title ?? "Understanding your request…"}
+              </h2>
+              <dl className="mt-4 divide-y divide-[#D8D3C9] border-y border-[#D8D3C9]">
+                <div className="py-2.5">
+                  <FieldLabel>Assignee</FieldLabel>
+                  <p className="mt-0.5 text-[13.5px]">
+                    {draft.assigneeName ?? draft.assigneeId ?? (draft.missingFields.includes("assignee") ? <span className="text-[#C94A37]">Needed</span> : "Unassigned")}
+                  </p>
                 </div>
-                <div className="mt-2 h-1 overflow-hidden rounded-full bg-[#EFECE5]">
-                  <motion.div
-                    className="h-full rounded-full bg-[#F0644E]"
-                    initial={false}
-                    animate={{ width: `${progress}%` }}
-                    transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                  />
+                <div className="py-2.5">
+                  <FieldLabel>Due date</FieldLabel>
+                  <p className="mt-0.5 font-mono text-[12.5px]">
+                    {draft.dueDate ?? <span className="font-sans text-[#C94A37]">Needed</span>}
+                  </p>
                 </div>
-                <h2 className="mt-2.5 text-[16px] font-semibold leading-[22px] tracking-tight">
-                  {draft.title ?? "Understanding your request…"}
-                </h2>
-              </div>
-              <div className="px-5 py-3 lg:flex-1 lg:overflow-y-auto">
-                <dl className="flex flex-col gap-3.5">
-                  <div>
-                    <FieldLabel>Missing</FieldLabel>
-                    <div className="mt-1.5 flex flex-wrap gap-1.5">
-                      {draft.missingFields.length === 0 ? (
-                        <MetaPill label="Ready to create" />
-                      ) : (
-                        draft.missingFields.map((f) => <MetaPill key={f} label={f.replace("_", " ")} />)
-                      )}
-                    </div>
+                <div className="py-2.5">
+                  <FieldLabel>Priority</FieldLabel>
+                  <p className="mt-0.5 text-[13.5px]">{draft.priority}</p>
+                </div>
+                {draft.description && (
+                  <div className="py-2.5">
+                    <FieldLabel>Summary</FieldLabel>
+                    <p className="mt-0.5 text-[13px] leading-[20px] text-[#4E4C46]">{draft.description}</p>
                   </div>
-                  <div className="rounded-[10px] border border-[#D8D3C9] bg-white/60 px-3 py-2.5">
-                    <FieldLabel>Assignee</FieldLabel>
-                    <p className="mt-0.5 text-[14px] font-medium">
-                      {draft.assigneeName ?? draft.assigneeId ?? (draft.missingFields.includes("assignee") ? "Not set yet" : "Unassigned")}
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <div className="rounded-[10px] border border-[#D8D3C9] bg-white/60 px-3 py-2.5">
-                      <FieldLabel>Due date</FieldLabel>
-                      <p className="mt-0.5 font-mono text-[13px]">{draft.dueDate ?? "—"}</p>
-                    </div>
-                    <div className="rounded-[10px] border border-[#D8D3C9] bg-white/60 px-3 py-2.5">
-                      <FieldLabel>Priority</FieldLabel>
-                      <p className="mt-0.5 text-[14px] font-medium">{draft.priority}</p>
-                    </div>
-                  </div>
-                  {draft.description && (
-                    <div>
-                      <FieldLabel>Summary</FieldLabel>
-                      <p className="mt-0.5 text-[13px] leading-[20px] text-[#4E4C46]">{draft.description}</p>
-                    </div>
-                  )}
-                </dl>
-              </div>
-              <div className="hidden border-t border-[#D8D3C9] px-5 py-4 lg:block">
-                <p className="rounded-[10px] bg-[#151512] px-3.5 py-2.5 text-[12px] leading-[18px] text-[#FBFAF7]">
-                  Draft auto-saves. Answer the remaining questions to create the ticket — or type{" "}
-                  <span className="font-semibold text-[#F0644E]">“forget it”</span> to discard it.
-                </p>
-              </div>
+                )}
+              </dl>
+              {draft.missingFields.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {draft.missingFields.map((f) => (
+                    <MetaPill key={f} label={`Needs ${f.replace("_", " ")}`} />
+                  ))}
+                </div>
+              )}
+              <p className="mt-4 text-[12px] leading-[18px] text-[#77736A]">
+                Answer the remaining questions to create the ticket, or type “forget it” to discard it.
+              </p>
             </motion.aside>
           )}
         </AnimatePresence>

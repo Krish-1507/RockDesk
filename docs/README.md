@@ -15,6 +15,7 @@ This folder contains the implementation source-of-truth documents for the PyRock
 9. `AppFlow_Working.md` - end-to-end state machine and acceptance flows.
 10. `Security.md` - authentication, authorization, secrets, RLS, rate limits, input/output safety.
 11. `ONE_SHOT_AGENT_PROMPT.md` - ready-to-paste execution prompt for the coding agent.
+12. `demo-script.md` - the 3 minute reviewer recording script, with exact lines to type and say.
 
 ## Recommended agent instruction
 

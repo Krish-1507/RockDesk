@@ -1,149 +1,165 @@
-# RockDesk — Chat-to-Ticket (PyRock assessment)
+# RockDesk
 
-Describe an issue in plain words, in any language. RockDesk turns it into a clean, trackable ticket.
+Type a problem in plain words. Get a clean ticket. That is the whole product.
 
-> The LLM interprets. The backend validates and decides. The database persists. The UI explains.
+RockDesk is my entry for the PyRock Chat to Ticket assignment. You describe an issue in a chat box, in English, Hindi, Hinglish, Spanish, Arabic, or Chinese. The app turns it into a structured ticket with an assignee, a due date, and a priority. When something is missing or unclear, it asks one short follow up question. It never guesses.
 
-## Live demo
+The rule behind the build: the model suggests, the backend decides.
 
-| Surface | URL |
+## Submission
+
+| Item | Value |
 |---|---|
-| RockDesk web | `https://rockdesk-iota.vercel.app` (`/chat`, `/admin`) |
-| RockDesk API | `https://rockdesk-api.vercel.app` (`/api/health`) |
+| Chat | `https://rockdesk-iota.vercel.app/chat` |
+| Admin panel | `https://rockdesk-iota.vercel.app/admin` |
+| API | `https://rockdesk-api.vercel.app` (try `/api/health`) |
+| Repo | `https://github.com/Krish-1507/RockDesk` |
+| Admin login | `admin@rockdesk.demo` / `RockDesk-Admin-2026` |
+| Chat login | none needed, the chat is public |
+| Assignable people | Priya Menon, Rahul Sharma, Rahul Verma, Amit Kumar, Neha Singh |
+| Demo script | `docs/demo-script.md` |
 
-> The demo is deployed and verified end-to-end against the production Supabase project and the real Groq LLM. See [Deploy](#deploy) to reproduce the setup in another Vercel account.
+Rahul Sharma and Rahul Verma share a first name on purpose, so reviewers can test what happens with an ambiguous name.
 
-**Demo admin credentials:** `admin@rockdesk.demo` / `RockDesk-Admin-2026`
+## Run it locally
 
-The public chat needs no login. Assignable people are seeded: Priya Menon, Rahul Sharma, Rahul Verma (intentional duplicate for ambiguity testing), Amit Kumar, Neha Singh.
-
-## Monorepo layout
-
-```text
-apps/web        Next.js 16 + TypeScript + Tailwind v4  → Vercel (web project)
-apps/api        Express 5 + TypeScript (api/index.ts) → Vercel (api project, Node runtime)
-packages/shared Zod schemas, domain types, constants (single source of truth)
-supabase/       Ordered SQL migrations + seed.sql (schema source of truth)
-docs/           Product/implementation contract (read first)
-```
-
-## Quick start (local)
-
-Prerequisites: Node 20+, Supabase CLI (logged in), a Supabase project.
+You need Node 20 or newer, a Supabase project, and a Groq API key.
 
 ```bash
 npm install
 
-# 1. Link + migrate + seed
+# point the Supabase CLI at your project, then create the tables and seed data
 supabase link --project-ref <your-ref>
 supabase db push
 supabase db query --linked -f supabase/seed.sql
-
-# 2. Create the demo admin Auth user + link profile (one-off script, then delete it)
-#    See README section "Demo admin account".
-
-# 3. Configure env
-cp .env.example .env   # fill in Supabase URL/keys + GROQ_API_KEY (+ optional GROQ_FALLBACK_API_KEY)
-
-# 4a. Run the API (http://localhost:4000)
-npm run dev:api
-# 4b. Run the web (http://localhost:3000) — needs apps/web/.env.local:
-# NEXT_PUBLIC_SUPABASE_URL=...  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...  NEXT_PUBLIC_API_BASE_URL=http://localhost:4000
-npm run dev:web
 ```
 
-### Demo admin account
-
-Create via the Supabase dashboard (Authentication → Add user) or the Auth Admin API,
-then link the profile so the API recognises the admin role:
+Create the demo admin in the Supabase dashboard under Authentication, Add user. Then link it to the admin profile:
 
 ```sql
 update public.app_users set auth_user_id = '<auth.users.id>', role = 'admin'
 where email = 'admin@rockdesk.demo';
 ```
 
-## Environment variables
-
-Web (`apps/web/.env.local`, `NEXT_PUBLIC_` prefix — browser-visible only):
-
-```text
-NEXT_PUBLIC_SUPABASE_URL
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-NEXT_PUBLIC_API_BASE_URL
-```
-
-API (server-only — never prefix with `NEXT_PUBLIC_`, never commit):
-
-```text
-SUPABASE_URL
-SUPABASE_PUBLISHABLE_KEY
-SUPABASE_SECRET_KEY
-GROQ_API_KEY                  # primary
-GROQ_FALLBACK_API_KEY         # optional; automatic failover when the primary errors
-LLM_MODEL                     # default: qwen/qwen3.8-27b
-APP_TIMEZONE_DEFAULT          # default: Asia/Kolkata
-AI_RATE_LIMIT_PER_MINUTE      # default: 20
-CORS_ORIGINS                  # comma-separated web origins
-PORT                          # local only; default 4000
-```
-
-See `.env.example` at the repo root. `.env`, `.env.local`, and `apps/web/.env.local` are git-ignored.
-
-## Architecture
-
-```text
-Next.js web ──HTTPS + Bearer JWT / chat session token──▶ Express API (Vercel Node runtime)
-                                                              │            │
-                                                     Supabase Postgres/Auth  Groq LLM (JSON mode)
-```
-
-- **Chat is public.** `POST /api/chat/sessions` issues a high-entropy opaque token; only its SHA-256 hash is stored. Every message request presents it via `X-Chat-Session-Token`.
-- **Admin is protected.** Supabase Auth email/password → `Authorization: Bearer` → API verifies the token and loads the `app_users` role. Non-admins get 403.
-- **Pending drafts live in Postgres** (`chat_sessions.pending_ticket`), never in memory — safe on serverless.
-- **Atomic creation** via the `create_ticket_from_chat` RPC (ticket + `TICKET_CREATED` event + draft clear).
-- **Idempotency** via `clientMessageId` (unique per session); retries return the stored outcome.
-- **Rate limiting** is DB-backed (`rate_limits` table), not an in-memory Map.
-
-## AI approach
-
-1. `GroqAIProvider` (behind the `AIProvider` interface) sends one prompt module's system/user text: current date + IANA timezone, assignable users, bounded recent conversation, pending draft, latest message — with `response_format: json_object`. If the primary `GROQ_API_KEY` fails (network/auth/5xx), the same request is retried with `GROQ_FALLBACK_API_KEY`.
-2. Output is validated with Zod (`TicketAnalysisSchema`); on schema failure it retries **once** with a repair instruction, then fails gracefully (message kept, draft kept, user-safe error).
-3. The backend — never the model — resolves assignees against `app_users` (0 or 2+ matches → clarification, never a guess), normalises dates (relative dates, weekday guard, nearest-future ordinal flagged ambiguous until confirmed), and recomputes `missingFields`.
-4. Deterministic multilingual responder templates (en/hi/Hinglish/es/ar/zh) ask **one short question for all missing fields**; free-form conversation uses the model's in-language reply.
-5. Original messages are stored verbatim; ticket titles are normalised to English; replies match the user's language.
-
-## Verification (all actually run)
+Copy the env template and fill it in:
 
 ```bash
-npm run lint                              # eslint, clean
-npm run typecheck --workspaces            # strict tsc, clean
-npm run test --workspace=@chat-to-ticket/api   # vitest + supertest, 50/50 pass
-npm run build --workspace=@chat-to-ticket/web  # production Next build, passes
-npm run build --workspace=@chat-to-ticket/api  # production tsc build, passes
+cp .env.example .env
 ```
 
-Live runs against production Supabase + real Groq (`qwen/qwen3.8-27b`): complete ticket (Priya/tomorrow/High), missing-assignee-and-date loop, ambiguous-Rahul and ordinal-date confirmation, Hindi/Hinglish/Spanish/Arabic/Chinese tickets, `hello` (no ticket), `forget it` (draft discarded), admin login → search/filter/due-date filter/patch/activity, and reloaded chat ticket confirmations. The API health endpoint returns `{status:"ok"}`.
+The web app needs its own file at `apps/web/.env.local`:
 
-## Deploy (two Vercel projects)
+```text
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
+NEXT_PUBLIC_API_BASE_URL=http://localhost:4000
+```
 
-**API project** (`rockdesk-api`) — classic project, Root Directory `apps/api`
-- Zero-config build: `npm install` resolves via the committed `vendor/` copy of shared; `node ./scripts/vercel-api-build.mjs` compiles; one function file per route under `api/` (this host skips dynamic-segment files, so detail routes also ship as static `by-id` aliases — see `docs/Deployment.md`).
-- Env (server-only): `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `GROQ_API_KEY`, `GROQ_FALLBACK_API_KEY`, `LLM_MODEL=qwen/qwen3.8-27b`, `APP_TIMEZONE_DEFAULT`, `AI_RATE_LIMIT_PER_MINUTE`, `CORS_ORIGINS=https://<web-domain>`.
+Then run both sides in two terminals:
 
-**Web project** (`rockdesk-iota`) — Root Directory `apps/web` (framework auto-detected)
-- Env: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_API_BASE_URL=<api-url>`.
-- Redeploy web **after** the API URL is known (it is inlined at build time).
+```bash
+npm run dev:api   # http://localhost:4000
+npm run dev:web   # http://localhost:3000
+```
+
+Checks I run before calling anything done:
+
+```bash
+npm run lint          # eslint, all workspaces
+npm run typecheck     # strict tsc, all workspaces
+npm run test:api      # vitest + supertest, 52 tests
+```
+
+## How it works
+
+The chat is public. Opening `/chat` creates a session and hands the browser an opaque token. Only a hash of that token is stored, so a leaked database still does not expose sessions. Every message sends the token back in a header.
+
+For each message the API sends one prompt to Groq: todays date, your timezone, the people who can be assigned, the recent conversation, the current draft, and your new message. The model must answer with JSON, which is checked with Zod. If the JSON is broken, the backend asks the model to fix it once. If that fails too, your message is kept and you get a plain error instead of a crash. If the primary Groq key fails, the same request is retried with a fallback key.
+
+Then the backend takes over and the model is out of the picture:
+
+- Assignees are matched against the people table. Zero matches or two matches both lead to a question, never a guess.
+- Relative dates become real dates. A bare weekday means the coming one. A bare date like "the 4th" means the nearest future 4th, and the app confirms it with you first.
+- Missing fields are recomputed every turn, and the reply asks one short question that covers all of them.
+- Tickets are created in a single database call that also writes the activity event and clears the draft, so a retry can never create the ticket twice. Every message carries an idempotency id for the same reason.
+
+Replies come back in your language. Titles are stored in English so the admin queue stays consistent, and your original message is always kept next to the ticket.
+
+Admin sign in goes through Supabase Auth. The browser holds the JWT, the API checks it on every admin call and loads your role from the profiles table. Anything that is not an admin gets a 403.
+
+## Project layout
+
+```text
+apps/web         Next.js + TypeScript + Tailwind, the chat and admin UI
+apps/api         Express + TypeScript, the API that Vercel runs as functions
+packages/shared  Zod schemas and types that both sides import
+supabase/        SQL migrations in order, plus seed data
+docs/            design notes, the API guide, and the demo script
+```
+
+## Environment variables
+
+Web (`apps/web/.env.local`, these ship to the browser):
+
+| Variable | What it is |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase publishable key |
+| `NEXT_PUBLIC_API_BASE_URL` | Where the API lives |
+
+API (server only, never commit these):
+
+| Variable | What it is |
+|---|---|
+| `SUPABASE_URL` | Supabase project URL |
+| `SUPABASE_SECRET_KEY` | Supabase secret key |
+| `GROQ_API_KEY` | Primary LLM key |
+| `GROQ_FALLBACK_API_KEY` | Optional, used automatically if the primary key fails |
+| `LLM_MODEL` | Defaults to `qwen/qwen3.8-27b` |
+| `APP_TIMEZONE_DEFAULT` | Defaults to `Asia/Kolkata` |
+| `AI_RATE_LIMIT_PER_MINUTE` | Defaults to 20 |
+| `CORS_ORIGINS` | Comma separated web origins |
+| `PORT` | Local only, defaults to 4000 |
+
+## API
+
+Chat routes use the session token in the `X-Chat-Session-Token` header. Admin routes use a Bearer JWT.
+
+| Method | Endpoint | Notes |
+|---|---|---|
+| `POST` | `/api/chat/sessions` | Start a session, returns id and token |
+| `POST` | `/api/chat/message` | Send a message, returns the reply plus draft or ticket |
+| `GET` | `/api/chat/sessions/by-id?sessionId=` | Full history for a session |
+| `GET` | `/api/tickets` | Search, filters, pagination, newest first |
+| `GET` | `/api/tickets/by-id?id=` | Ticket detail with activity |
+| `PATCH` | `/api/tickets/by-id?id=` | Edit status, assignee, date, priority, tags |
+| `DELETE` | `/api/tickets/by-id?id=` | Delete a ticket and its activity, admin only |
+| `GET` | `/api/users` | Assignable people, optional search |
+| `POST` | `/api/users` | Add a person, admin only |
+| `GET` | `/api/auth/me` | Who the current token belongs to |
+
+One deviation from the brief to be upfront about: there is no custom `POST /api/auth/login`. Login runs through Supabase Auth directly, which returns the JWT and hashes passwords for me. The API verifies that token and checks the role. It covers what the endpoint was meant to do.
 
 ## Assumptions
 
-- Groq is the LLM provider (keys supplied); default model `qwen/qwen3.8-27b` (verified JSON mode + multilingual on the live API; `llama-3.3-70b-versatile` has been retired by Groq).
-- Chat is public; only `/admin` requires login (per the brief's weighting).
-- English-normalised titles; assistant replies in the user's language (Hinglish preserved as Hinglish).
-- Bare weekday "Friday" = the upcoming Friday; "the 4th" = nearest future 4th, confirmed before creation.
-- No duplicate detection, streaming, or notifications (explicit non-goals until P0 is solid).
+- The default model is `qwen/qwen3.8-27b` on Groq. The Llama 3.3 70b model was retired on their side.
+- Chat needs no login. Only `/admin` does.
+- "Friday" on its own means the coming Friday.
+- "The 4th" means the nearest future 4th and is confirmed before the ticket is created.
+- No duplicate detection, no streaming, no notifications. Those were cut to keep the core solid.
 
-## Known limitations
+## Limitations
 
-- Ticket list search uses `ILIKE` (fine for demo scale; upgrade to pg_trgm/full-text later).
-- One active pending draft per session (by design — keeps the state machine explicit).
-- AI timeout is 30s; longer stalls return a safe retryable error with the message preserved.
+- Ticket search is a simple `ILIKE` query. Fine for demo size, would need full text search later.
+- One pending draft per chat session, by design.
+- The model gets 30 seconds. Slower answers come back as a safe error and your message is kept.
+
+## CI
+
+Every push runs lint, typecheck, and a production web build. API tests run too when the Supabase secrets are present, since they talk to a real database. The secrets the test job needs are `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, and `GROQ_API_KEY`.
+
+## Docs
+
+- `docs/demo-script.md`, the 3 minute recording script
+- `docs/API-guide.md`, every route and its contract
+- `docs/Architecture.md`, `docs/Database.md`, `docs/Deployment.md` for the rest

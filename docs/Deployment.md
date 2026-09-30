@@ -16,7 +16,7 @@ Two projects, one repo (`https://github.com/Krish-1507/RockDesk`).
   routes). **This host setup skips dynamic-segment files** (`[id].mjs`,
   `[...all].mjs` never match) — detail routes therefore ship as static
   `by-id` aliases backed by additive Express routes that read the id from
-  the query string (`GET/PATCH /api/tickets/by-id?id=`,
+  the query string (`GET/PATCH/DELETE /api/tickets/by-id?id=`,
   `GET /api/chat/sessions/by-id?sessionId=`). The `/:id` variants remain for
   local dev. The web client uses the `by-id` variants.
 - Do NOT use an esbuild ESM bundle here: `debug` (via `body-parser` via

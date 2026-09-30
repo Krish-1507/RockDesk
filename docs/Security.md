@@ -63,6 +63,7 @@ Examples:
 ```text
 GET /api/tickets         admin only for global list
 PATCH /api/tickets/:id  admin only for admin edits
+DELETE /api/tickets/:id admin only for admin deletes
 GET /api/users           authenticated users may read active assignees
 POST /api/users          admin only
 ```

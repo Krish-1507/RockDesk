@@ -4,6 +4,7 @@ import { createApp } from "../src/app.js";
 import { getSupabaseAdmin } from "../src/config/supabase.js";
 import { generateSessionToken, hashSessionToken } from "../src/utils/tokens.js";
 import { setAIProviderForTests } from "../src/controllers/chat-controller.js";
+import { deleteTicket, getTicketById, listTicketEvents } from "../src/repositories/ticket-repository.js";
 import { baseAnalysis, MockAIProvider } from "./mock-ai.js";
 import type { Express } from "express";
 
@@ -141,6 +142,40 @@ describe("admin authorization", () => {
 
   it("rejects ticket listing with a garbage token", async () => {
     await request(app).get("/api/tickets").set("Authorization", "Bearer garbage").expect(401);
+  });
+
+  it("rejects ticket deletion without a token", async () => {
+    await request(app).delete("/api/tickets/00000000-0000-4000-8000-000000000000").expect(401);
+  });
+});
+
+describe("ticket deletion", () => {
+  it("deletes a ticket and its activity, then reports it missing", async () => {
+    const { sessionId, sessionToken } = await createSession();
+    mockAI.enqueue(
+      baseAnalysis({
+        status: "complete",
+        normalizedEnglishTitle: "Deletable ticket",
+        description: "Created to be deleted.",
+        assigneeCandidate: "Neha Singh",
+        assigneeResolution: "resolved",
+        dueDate: "2026-10-02",
+        dueDateRaw: "Friday",
+        dueDateResolution: "resolved",
+        language: "en",
+      }),
+    );
+    const created = await request(app)
+      .post("/api/chat/message")
+      .set("X-Chat-Session-Token", sessionToken)
+      .send({ sessionId, message: "Delete me. Neha Singh by Friday.", timezone: "Asia/Kolkata" })
+      .expect(200);
+    const id = created.body.data.ticket.id as string;
+    const db = getSupabaseAdmin();
+    expect(await deleteTicket(db, id)).toBe(true);
+    expect(await getTicketById(db, id)).toBeNull();
+    expect(await listTicketEvents(db, id)).toEqual([]);
+    expect(await deleteTicket(db, id)).toBe(false);
   });
 });
 
