@@ -111,7 +111,7 @@ export interface ChatHistory {
 }
 
 export async function loadChatHistory(sessionId: string, sessionToken: string): Promise<ChatHistory> {
-  const res = await fetch(`${apiBase()}/api/chat/sessions/${sessionId}`, {
+  const res = await fetch(`${apiBase()}/api/chat/sessions/by-id?sessionId=${encodeURIComponent(sessionId)}`, {
     headers: { "X-Chat-Session-Token": sessionToken },
   });
   return parse<ChatHistory>(res);
@@ -164,12 +164,12 @@ export interface TicketDetail {
 }
 
 export async function getTicket(id: string): Promise<TicketDetail> {
-  const res = await authed(`/api/tickets/${id}`);
+  const res = await authed(`/api/tickets/by-id?id=${encodeURIComponent(id)}`);
   return parse<TicketDetail>(res);
 }
 
 export async function patchTicket(id: string, patch: Record<string, unknown>): Promise<{ ticket: TicketListItem }> {
-  const res = await authed(`/api/tickets/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+  const res = await authed(`/api/tickets/by-id?id=${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(patch) });
   return parse<{ ticket: TicketListItem }>(res);
 }
 

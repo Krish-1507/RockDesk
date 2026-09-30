@@ -37,7 +37,8 @@ export async function listTicketsHandler(req: Request, res: Response): Promise<v
 }
 
 export async function getTicketHandler(req: Request, res: Response): Promise<void> {
-  const parsed = UuidSchema.safeParse(req.params.id);
+  const rawId = typeof req.query.id === "string" ? req.query.id : req.params.id;
+  const parsed = UuidSchema.safeParse(rawId);
   if (!parsed.success) {
     logRequest(req, 400, { operation: "tickets-get" });
     res.status(400).json(errorBody("VALIDATION_ERROR", "Invalid ticket id."));
@@ -61,7 +62,8 @@ export async function getTicketHandler(req: Request, res: Response): Promise<voi
 }
 
 export async function patchTicketHandler(req: Request, res: Response): Promise<void> {
-  const idParsed = UuidSchema.safeParse(req.params.id);
+  const rawId = typeof req.query.id === "string" ? req.query.id : req.params.id;
+  const idParsed = UuidSchema.safeParse(rawId);
   const bodyParsed = UpdateTicketSchema.safeParse(req.body);
   if (!idParsed.success || !bodyParsed.success) {
     logRequest(req, 400, { operation: "tickets-patch" });

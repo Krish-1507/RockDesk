@@ -18,7 +18,13 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  */
 export async function requireChatSession(req: Request, res: Response, next: NextFunction): Promise<void> {
   const token = req.header("x-chat-session-token") ?? "";
-  const sessionId = (req.body as { sessionId?: unknown } | undefined)?.sessionId ?? req.params.id;
+  const bodyId = (req.body as { sessionId?: unknown } | undefined)?.sessionId;
+  const queryId = req.query.sessionId;
+  const sessionId =
+    req.chatSessionId ??
+    (typeof bodyId === "string" ? bodyId : undefined) ??
+    (typeof req.params.id === "string" ? req.params.id : undefined) ??
+    (typeof queryId === "string" ? queryId : undefined);
   if (!token || typeof sessionId !== "string" || !UUID_RE.test(sessionId)) {
     logRequest(req, 401, { operation: "chat-session" });
     res.status(401).json(errorBody("UNAUTHORIZED", "Valid chat session credentials required."));
