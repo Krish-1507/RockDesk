@@ -3,5 +3,5 @@
   "installCommand": "node -e \"process.exit(0)\"",
   "buildCommand": "node -e \"process.exit(0)\"",
   "outputDirectory": "api",
-  "rewrites": [{ "source": "/api/(.*)", "destination": "/api/bundle" }]
+  "rewrites": [{ "source": "/api/(.*)", "destination": "/api/index" }]
 }
