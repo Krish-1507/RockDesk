@@ -70713,5 +70713,3 @@ object-assign/index.js:
   @license MIT
   *)
 */
-
-module.exports = module.exports.default;
