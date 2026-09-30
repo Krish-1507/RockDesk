@@ -1,0 +1,6 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "node ../../scripts/vercel-api-install.mjs",
+  "buildCommand": "node ../../scripts/vercel-api-build.mjs",
+  "rewrites": [{ "source": "/api/(.*)", "destination": "/api/bundle" }]
+}
