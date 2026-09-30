@@ -8,7 +8,7 @@ buildSync({
   bundle: true,
   platform: "node",
   format: "esm",
-  outfile: path.join(root, "apps", "api", "api", "index.js"),
+  outfile: path.join(root, "apps", "api", "api", "_bundle.mjs"),
   logLevel: "warning",
 });
 console.log("api bundle ready");
