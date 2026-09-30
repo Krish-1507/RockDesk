@@ -11,7 +11,7 @@ Describe an issue in plain words, in any language. RockDesk turns it into a clea
 | RockDesk web | `https://rockdesk-iota.vercel.app` (`/chat`, `/admin`) |
 | RockDesk API | `https://rockdesk-api.vercel.app` (`/api/health`) |
 
-> Deployment to the reviewer's Vercel account is a 10-minute, 3-command job — see [Deploy](#deploy). All builds, tests, and live end-to-end runs below were verified against the production Supabase project and the real Groq LLM.
+> The demo is deployed and verified end-to-end against the production Supabase project and the real Groq LLM. See [Deploy](#deploy) to reproduce the setup in another Vercel account.
 
 **Demo admin credentials:** `admin@rockdesk.demo` / `RockDesk-Admin-2026`
 
@@ -117,12 +117,12 @@ Next.js web ──HTTPS + Bearer JWT / chat session token──▶ Express API (
 ```bash
 npm run lint                              # eslint, clean
 npm run typecheck --workspaces            # strict tsc, clean
-npm run test --workspace=@chat-to-ticket/api   # vitest + supertest, 33/33 pass
+npm run test --workspace=@chat-to-ticket/api   # vitest + supertest, 50/50 pass
 npm run build --workspace=@chat-to-ticket/web  # production Next build, passes
 npm run build --workspace=@chat-to-ticket/api  # production tsc build, passes
 ```
 
-Live runs against production Supabase + real Groq (`qwen/qwen3.8-27b`): complete ticket (Priya/Friday→2026-10-02/High), missing-assignee loop, ambiguous-Rahul disambiguation + resolution, Hindi/Hinglish/Spanish/Arabic/Chinese tickets, `hello` (no ticket), `forget it` (draft discarded), admin login → search/filter/patch/activity, user directory search. API `/health` returns `{status:"ok"}`.
+Live runs against production Supabase + real Groq (`qwen/qwen3.8-27b`): complete ticket (Priya/tomorrow/High), missing-assignee-and-date loop, ambiguous-Rahul and ordinal-date confirmation, Hindi/Hinglish/Spanish/Arabic/Chinese tickets, `hello` (no ticket), `forget it` (draft discarded), admin login → search/filter/due-date filter/patch/activity, and reloaded chat ticket confirmations. The API health endpoint returns `{status:"ok"}`.
 
 ## Deploy (two Vercel projects)
 
@@ -144,7 +144,6 @@ Live runs against production Supabase + real Groq (`qwen/qwen3.8-27b`): complete
 
 ## Known limitations
 
-- Vercel deployment needs the reviewer's `vercel login` (interactive); everything else is pre-configured.
 - Ticket list search uses `ILIKE` (fine for demo scale; upgrade to pg_trgm/full-text later).
 - One active pending draft per session (by design — keeps the state machine explicit).
 - AI timeout is 30s; longer stalls return a safe retryable error with the message preserved.
