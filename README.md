@@ -8,9 +8,8 @@ Describe an issue in plain words, in any language. RockDesk turns it into a clea
 
 | Surface | URL |
 |---|---|
-| Chat | `<web-vercel-url>/chat` |
-| Admin | `<web-vercel-url>/admin` |
-| API health | `<api-vercel-url>/health` |
+| RockDesk web | `https://rockdesk-iota.vercel.app` (`/chat`, `/admin`) |
+| RockDesk API | `https://rockdesk-api.vercel.app` (`/api/health`) |
 
 > Deployment to the reviewer's Vercel account is a 10-minute, 3-command job — see [Deploy](#deploy). All builds, tests, and live end-to-end runs below were verified against the production Supabase project and the real Groq LLM.
 
@@ -125,33 +124,15 @@ npm run build --workspace=@chat-to-ticket/api  # production tsc build, passes
 
 Live runs against production Supabase + real Groq (`qwen/qwen3.8-27b`): complete ticket (Priya/Friday→2026-10-02/High), missing-assignee loop, ambiguous-Rahul disambiguation + resolution, Hindi/Hinglish/Spanish/Arabic/Chinese tickets, `hello` (no ticket), `forget it` (draft discarded), admin login → search/filter/patch/activity, user directory search. API `/health` returns `{status:"ok"}`.
 
-## Deploy (Vercel multi-service, single domain)
+## Deploy (two Vercel projects)
 
-One Vercel project from this repo, configured by the root `vercel.json`:
+**API project** (`rockdesk-api`) — classic project, Root Directory `apps/api`
+- Zero-config build: `npm install` resolves via the committed `vendor/` copy of shared; `node ./scripts/vercel-api-build.mjs` compiles; one function file per route under `api/` (this host skips dynamic-segment files, so detail routes also ship as static `by-id` aliases — see `docs/Deployment.md`).
+- Env (server-only): `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `GROQ_API_KEY`, `GROQ_FALLBACK_API_KEY`, `LLM_MODEL=qwen/qwen3.8-27b`, `APP_TIMEZONE_DEFAULT`, `AI_RATE_LIMIT_PER_MINUTE`, `CORS_ORIGINS=https://<web-domain>`.
 
-- service **`api`** (Express, `apps/api`) — public on `/api/*`
-- service **`web`** (Next.js, `apps/web`) — public on `/*` (catch-all)
-
-No `bindings` are declared, deliberately: the browser calls the API over the public same-origin `/api/*` route, and no server-side function calls another service. Bindings are for function-to-function calls at runtime — there are none here.
-
-Paste the `.env` contents (or set vars individually) in the Vercel dashboard → Environments: Production and Preview:
-
-```text
-# api service (server-only)
-SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY
-GROQ_API_KEY, GROQ_FALLBACK_API_KEY
-LLM_MODEL=qwen/qwen3.8-27b
-APP_TIMEZONE_DEFAULT=Asia/Kolkata
-AI_RATE_LIMIT_PER_MINUTE=20
-CORS_ORIGINS=https://<your-domain>
-# web service (browser-visible)
-NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-# NOTE: do NOT set NEXT_PUBLIC_API_BASE_URL — unset means same-origin /api/*
-```
-
-**Supabase** — `supabase link`, `supabase db push`, seed, create + link the admin Auth user, keep demo credentials active ≥14 days.
-
-Standalone alternative (two Vercel projects): API with Root Directory `apps/api`, Install `npm install --prefix ../..`, Build `npm --prefix ../.. run build --workspace=@chat-to-ticket/shared && npm run build`; Web with Root Directory `apps/web` plus `NEXT_PUBLIC_API_BASE_URL=<api-url>`.
+**Web project** (`rockdesk-iota`) — Root Directory `apps/web` (framework auto-detected)
+- Env: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_API_BASE_URL=<api-url>`.
+- Redeploy web **after** the API URL is known (it is inlined at build time).
 
 ## Assumptions
 
