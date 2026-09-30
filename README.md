@@ -17,7 +17,7 @@ The rule behind the build: the model suggests, the backend decides.
 | Admin login | `admin@rockdesk.demo` / `RockDesk-Admin-2026` |
 | Chat login | none needed, the chat is public |
 | Assignable people | Priya Menon, Rahul Sharma, Rahul Verma, Amit Kumar, Neha Singh |
-| Demo script | `docs/demo-script.md` |
+| Demo walkthrough | `Complete_Documentation.md`, section 16 |
 
 Rahul Sharma and Rahul Verma share a first name on purpose, so reviewers can test what happens with an ambiguous name.
 
@@ -164,10 +164,10 @@ One deviation from the brief to be upfront about: there is no custom `POST /api/
 
 ## CI
 
-Every push runs lint, typecheck, and a production web build. API tests run too when the Supabase secrets are present, since they talk to a real database. The secrets the test job needs are `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, and `GROQ_API_KEY`.
+Every push runs lint, typecheck, and a production web build. API tests run too when the Supabase secrets are present, and skip gracefully when they are not, since they talk to a real database. The secrets the test job needs are `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, and `GROQ_API_KEY`.
 
 ## Docs
 
-- `docs/demo-script.md`, the 3 minute recording script
+- `Complete_Documentation.md`, the full technical writeup including the demo walkthrough
 - `docs/API-guide.md`, every route and its contract
 - `docs/Architecture.md`, `docs/Database.md`, `docs/Deployment.md` for the rest

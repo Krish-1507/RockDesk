@@ -24,7 +24,6 @@ jobs:
 
   api-tests:
     runs-on: ubuntu-latest
-    if: ${{ secrets.SUPABASE_URL != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -32,7 +31,13 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npm run test:api
+      - name: API tests (skipped without Supabase secrets)
+        run: |
+          if [ -z "$SUPABASE_URL" ]; then
+            echo "SUPABASE_URL is not set, skipping live API tests."
+            exit 0
+          fi
+          npm run test:api
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}

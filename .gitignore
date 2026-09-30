@@ -16,3 +16,8 @@ supabase/.temp/
 tmp/
 .vercel
 .env*
+
+# Internal prep docs: kept locally, not part of the submission.
+docs/Agents.md
+docs/ImplementationPlan.md
+docs/demo-script.md
