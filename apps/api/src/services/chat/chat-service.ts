@@ -24,7 +24,8 @@ import { createTicketAtomic, getTicketById } from "../../repositories/ticket-rep
 import { listAssignableUsers } from "../../repositories/user-repository.js";
 import { resolveAnswerToUser, resolveAssignee } from "./assignee-resolver.js";
 import { isValidTimezone, resolveDueDate, todayInTimezone } from "./date-resolver.js";
-import { buildClarification, buildConfirmation, CANCELLED_MESSAGE, GREETING_FALLBACK, type Lang } from "./responder.js";
+import { findSimilarTicket, type SimilarTicket } from "./duplicate-detector.js";
+import { buildClarification, buildConfirmation, buildDuplicateQuestion, CANCELLED_MESSAGE, GREETING_FALLBACK, type Lang } from "./responder.js";
 import { AppError } from "../../utils/errors.js";
 
 export interface ProcessMessageInput {
@@ -41,12 +42,23 @@ export interface ChatOutcome {
   draft: PendingTicket | null;
   ticket: TicketRecord | null;
   disambiguationOptions?: AssignableUser[] | undefined;
+  duplicateCandidate?: SimilarTicket | null | undefined;
 }
 
 const AFFIRMATIVE = /^(yes|yeah|yep|yup|sure|ok|okay|correct|right|confirm|confirmed|haan|han|ha|ji|s[ií]|claro|vale|oui|是的|对|好|نعم|أجل|हाँ|हां)[.!।。]*$/iu;
 
 function isAffirmative(text: string): boolean {
   return AFFIRMATIVE.test(text.trim().toLowerCase());
+}
+
+/** Explicit "create it anyway" phrasing, for the duplicate-confirm buttons and typed replies. */
+const CREATE_ANYWAY = /create\s+(it\s+)?anyway|go\s+ahead.*creat|creat.*anyway|bana\s*do|बना\s*दो|créalo|crée/i;
+
+/** Short denials ("no", "nahi", "it's different") for the duplicate-confirm question. */
+const DENIAL = /^(no|nope|nah|nahi|nahin|नहीं|नही|不对|不是|no es)\b|different|alag|not (the )?same/iu;
+
+function isDenial(text: string): boolean {
+  return DENIAL.test(text.trim());
 }
 
 function langFamily(language: string): Lang {
@@ -185,8 +197,76 @@ interface TicketIntentContext {
   timezone: string;
 }
 
+/** Creates the ticket from a fully-resolved draft (used for normal and duplicate-confirmed flows). */
+async function createFromCompleteDraft(
+  db: SupabaseClient,
+  sessionId: string,
+  draft: {
+    title: string;
+    description: string | null;
+    originalTitle: string | null;
+    assigneeId: string | null;
+    dueDate: string | null;
+    priority: TicketPriority;
+    tags: string[];
+    language: string;
+    sourceMessageId: string | null;
+  },
+  language: string,
+): Promise<ChatOutcome> {
+  const ticket = await createTicketAtomic(db, {
+    title: draft.title,
+    description: draft.description ?? draft.title,
+    originalTitle: draft.originalTitle,
+    assigneeId: draft.assigneeId,
+    dueDate: draft.dueDate,
+    priority: draft.priority,
+    tags: draft.tags,
+    language: draft.language,
+    sourceMessageId: draft.sourceMessageId,
+    sourceSessionId: sessionId,
+  });
+  const full = await getTicketById(db, ticket.id);
+  const content = buildConfirmation(langFamily(language), full ?? ticket);
+  const assistant = await insertMessage(db, {
+    sessionId,
+    role: "assistant",
+    content,
+    detectedLanguage: language,
+  });
+  return { sessionId, assistantMessage: assistant, state: "idle", draft: null, ticket: full ?? ticket };
+}
+
 async function handleTicketIntent(db: SupabaseClient, ctx: TicketIntentContext): Promise<ChatOutcome> {
-  const { analysis, draft } = ctx;
+  const { analysis } = ctx;
+  let draft = ctx.draft;
+
+  // Duplicate-confirm interception: the previous turn stored a complete draft and
+  // asked whether to create anyway. Affirmation or denial resolves it without new AI work.
+  if (draft?.duplicateCandidate && !draft.duplicateConfirmed && draft.title) {
+    if (isAffirmative(ctx.text) || CREATE_ANYWAY.test(ctx.text) || isDenial(ctx.text)) {
+      return createFromCompleteDraft(
+        db,
+        ctx.sessionId,
+        {
+          title: draft.title,
+          description: draft.description,
+          originalTitle: draft.originalTitle,
+          assigneeId: draft.assigneeId,
+          dueDate: draft.dueDate,
+          priority: draft.priority,
+          tags: draft.tags,
+          language: draft.language,
+          sourceMessageId: draft.sourceMessageId,
+        },
+        analysis.language,
+      );
+    }
+    // New information instead of an answer: drop the stale question and re-evaluate below.
+    draft = { ...draft, duplicateCandidate: null };
+  } else if (draft?.duplicateCandidate) {
+    draft = { ...draft, duplicateCandidate: null };
+  }
   const lang = langFamily(analysis.language);
 
   const title = analysis.normalizedEnglishTitle ?? draft?.title ?? null;
@@ -287,27 +367,63 @@ async function handleTicketIntent(db: SupabaseClient, ctx: TicketIntentContext):
   if (dateMissing) missingFields.push("due_date");
 
   if (missingFields.length === 0 && title) {
-    const ticket = await createTicketAtomic(db, {
-      title,
-      description: description ?? title,
-      originalTitle,
-      assigneeId,
-      dueDate,
-      priority,
-      tags,
-      language: analysis.language,
-      sourceMessageId,
-      sourceSessionId: ctx.sessionId,
-    });
-    const full = await getTicketById(db, ticket.id);
-    const content = buildConfirmation(lang, full ?? ticket);
-    const assistant = await insertMessage(db, {
-      sessionId: ctx.sessionId,
-      role: "assistant",
-      content,
-      detectedLanguage: analysis.language,
-    });
-    return { sessionId: ctx.sessionId, assistantMessage: assistant, state: "idle", draft: null, ticket: full ?? ticket };
+    if (!draft?.duplicateConfirmed) {
+      const similar = await findSimilarTicket(db, title);
+      if (similar) {
+        const dupDraft: PendingTicket = {
+          title,
+          originalTitle,
+          description,
+          assigneeCandidate: analysis.assigneeCandidate ?? draft?.assigneeCandidate ?? null,
+          assigneeId,
+          explicitlyUnassigned,
+          dueDate,
+          explicitlyNoDeadline,
+          ambiguousDateQuestion,
+          priority,
+          tags,
+          language: analysis.language,
+          missingFields: [],
+          sourceMessageId,
+          disambiguationOptions,
+          duplicateCandidate: { id: similar.id, ticketNumber: similar.ticketNumber, title: similar.title },
+          duplicateConfirmed: false,
+          updatedTurn: (draft?.updatedTurn ?? 0) + 1,
+        };
+        await savePendingState(db, ctx.sessionId, dupDraft, "awaiting_clarification");
+        const content = buildDuplicateQuestion(lang, similar.ticketNumber, similar.title);
+        const assistant = await insertMessage(db, {
+          sessionId: ctx.sessionId,
+          role: "assistant",
+          content,
+          detectedLanguage: analysis.language,
+        });
+        return {
+          sessionId: ctx.sessionId,
+          assistantMessage: assistant,
+          state: "awaiting_clarification",
+          draft: dupDraft,
+          ticket: null,
+          duplicateCandidate: similar,
+        };
+      }
+    }
+    return createFromCompleteDraft(
+      db,
+      ctx.sessionId,
+      {
+        title,
+        description,
+        originalTitle,
+        assigneeId,
+        dueDate,
+        priority,
+        tags,
+        language: analysis.language,
+        sourceMessageId,
+      },
+      analysis.language,
+    );
   }
 
   const nextDraft: PendingTicket = {
@@ -326,6 +442,8 @@ async function handleTicketIntent(db: SupabaseClient, ctx: TicketIntentContext):
     missingFields,
     sourceMessageId,
     disambiguationOptions,
+    duplicateCandidate: null,
+    duplicateConfirmed: false,
     updatedTurn: (draft?.updatedTurn ?? 0) + 1,
   };
   await savePendingState(db, ctx.sessionId, nextDraft, "awaiting_clarification");

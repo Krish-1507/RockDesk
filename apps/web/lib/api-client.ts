@@ -56,6 +56,7 @@ export interface DraftView {
   priority: string;
   missingFields: string[];
   disambiguationOptions: Array<{ id: string; name: string; department: string | null }>;
+  duplicateCandidate: { ticketNumber: number; title: string } | null;
 }
 
 export interface CreatedTicketView {
@@ -74,6 +75,7 @@ export interface ChatMessageResponse {
   state: "idle" | "awaiting_clarification";
   draft: DraftView | null;
   ticket: CreatedTicketView | null;
+  duplicate: { ticketNumber: number; title: string } | null;
 }
 
 export async function createChatSession(): Promise<ChatSessionCreate> {
@@ -102,6 +104,74 @@ export async function sendChatMessage(args: {
     }),
   });
   return parse<ChatMessageResponse>(res);
+}
+
+/**
+ * Streaming variant: renders the validated reply progressively, then resolves
+ * with the same payload shape as sendChatMessage. Throws when the server does
+ * not speak event-stream so the caller can fall back to the JSON endpoint.
+ */
+export async function streamChatMessage(
+  args: {
+    sessionId: string;
+    sessionToken: string;
+    message: string;
+    timezone: string;
+    clientMessageId: string;
+  },
+  onToken: (text: string) => void,
+): Promise<ChatMessageResponse> {
+  const res = await fetch(`${apiBase()}/api/chat/stream`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Chat-Session-Token": args.sessionToken,
+    },
+    body: JSON.stringify({
+      sessionId: args.sessionId,
+      message: args.message,
+      timezone: args.timezone,
+      clientMessageId: args.clientMessageId,
+    }),
+  });
+  if (!res.ok) {
+    // parse() throws the server's ApiError for non-ok responses.
+    return parse<ChatMessageResponse>(res);
+  }
+  const contentType = res.headers.get("content-type") ?? "";
+  if (!contentType.includes("text/event-stream") || !res.body) {
+    throw new ApiError("STREAM_UNSUPPORTED", 502, "Streaming is not available. Please try again.");
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let donePayload: ChatMessageResponse | null = null;
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const frames = buffer.split("\n\n");
+    buffer = frames.pop() ?? "";
+    for (const frame of frames) {
+      const eventLine = frame.split("\n").find((l) => l.startsWith("event:"));
+      const dataLine = frame.split("\n").find((l) => l.startsWith("data:"));
+      if (!eventLine || !dataLine) continue;
+      const event = eventLine.slice("event:".length).trim();
+      const data = JSON.parse(dataLine.slice("data:".length).trim()) as unknown;
+      if (event === "token" && data && typeof data === "object" && "text" in data && typeof (data as { text: unknown }).text === "string") {
+        onToken((data as { text: string }).text);
+      } else if (event === "done") {
+        donePayload = data as ChatMessageResponse;
+      } else if (event === "error") {
+        const errData = data as { error?: { code?: string; message?: string } };
+        throw new ApiError(errData?.error?.code ?? "INTERNAL_ERROR", res.status, errData?.error?.message ?? "Something went wrong.");
+      }
+    }
+  }
+  if (!donePayload) {
+    throw new ApiError("STREAM_INCOMPLETE", 502, "The reply was cut off. Please try again.");
+  }
+  return donePayload;
 }
 
 export interface ChatHistory {

@@ -147,6 +147,16 @@ describe("admin authorization", () => {
   it("rejects ticket deletion without a token", async () => {
     await request(app).delete("/api/tickets/00000000-0000-4000-8000-000000000000").expect(401);
   });
+
+  it("rejects chat streaming for another session's token", async () => {
+    const a = await createSession();
+    const b = await createSession();
+    await request(app)
+      .post("/api/chat/stream")
+      .set("X-Chat-Session-Token", a.sessionToken)
+      .send({ sessionId: b.sessionId, message: "hijack", timezone: "Asia/Kolkata" })
+      .expect(401);
+  });
 });
 
 describe("ticket deletion", () => {
@@ -176,6 +186,156 @@ describe("ticket deletion", () => {
     expect(await getTicketById(db, id)).toBeNull();
     expect(await listTicketEvents(db, id)).toEqual([]);
     expect(await deleteTicket(db, id)).toBe(false);
+  });
+});
+
+describe("duplicate detection", () => {
+  async function createCompleteTicket(sessionId: string, sessionToken: string, title: string, message: string): Promise<{ id: string; ticketNumber: number }> {
+    mockAI.enqueue(
+      baseAnalysis({
+        status: "complete",
+        normalizedEnglishTitle: title,
+        description: `${title}.`,
+        assigneeCandidate: "Neha Singh",
+        assigneeResolution: "resolved",
+        dueDate: "2026-10-02",
+        dueDateRaw: "Friday",
+        dueDateResolution: "resolved",
+        language: "en",
+      }),
+    );
+    const created = await request(app)
+      .post("/api/chat/message")
+      .set("X-Chat-Session-Token", sessionToken)
+      .send({ sessionId, message, timezone: "Asia/Kolkata" })
+      .expect(200);
+    const ticket = created.body.data.ticket as { id: string; ticketNumber: number };
+    ticketIds.push(ticket.id);
+    return ticket;
+  }
+
+  it("asks before creating a similar ticket, then creates on yes", async () => {
+    const first = await createSession();
+    const original = await createCompleteTicket(
+      first.sessionId,
+      first.sessionToken,
+      "Zebra sync outage 500 errors",
+      "Zebra sync outage 500 errors. Neha Singh by Friday.",
+    );
+    const second = await createSession();
+    mockAI.enqueue(
+      baseAnalysis({
+        status: "complete",
+        normalizedEnglishTitle: "Zebra sync outage 500 error",
+        description: "Zebra sync outage 500 error.",
+        assigneeCandidate: "Neha Singh",
+        assigneeResolution: "resolved",
+        dueDate: "2026-10-02",
+        dueDateRaw: "Friday",
+        dueDateResolution: "resolved",
+        language: "en",
+      }),
+    );
+    const asked = await request(app)
+      .post("/api/chat/message")
+      .set("X-Chat-Session-Token", second.sessionToken)
+      .send({ sessionId: second.sessionId, message: "Zebra sync outage 500 error. Neha Singh by Friday.", timezone: "Asia/Kolkata" })
+      .expect(200);
+    expect(asked.body.data.state).toBe("awaiting_clarification");
+    expect(asked.body.data.ticket).toBeNull();
+    expect(asked.body.data.draft.duplicateCandidate.ticketNumber).toBe(original.ticketNumber);
+    expect(asked.body.data.duplicate.ticketNumber).toBe(original.ticketNumber);
+
+    mockAI.enqueue(baseAnalysis({ status: "needs_clarification", language: "en" }));
+    const confirmed = await request(app)
+      .post("/api/chat/message")
+      .set("X-Chat-Session-Token", second.sessionToken)
+      .send({ sessionId: second.sessionId, message: "Yes, create it anyway.", timezone: "Asia/Kolkata" })
+      .expect(200);
+    expect(confirmed.body.data.state).toBe("idle");
+    expect(confirmed.body.data.ticket.ticketNumber).toBeGreaterThan(0);
+    ticketIds.push(confirmed.body.data.ticket.id as string);
+  });
+
+  it("discards the duplicate draft on cancel", async () => {
+    const first = await createSession();
+    await createCompleteTicket(
+      first.sessionId,
+      first.sessionToken,
+      "Mango ledger export delay for aurora partners",
+      "Mango ledger export delay for aurora partners. Neha Singh by Friday.",
+    );
+    const second = await createSession();
+    mockAI.enqueue(
+      baseAnalysis({
+        status: "complete",
+        normalizedEnglishTitle: "Mango ledger export delay glitch for aurora partners",
+        description: "Mango ledger export delay glitch for aurora partners.",
+        assigneeCandidate: "Neha Singh",
+        assigneeResolution: "resolved",
+        dueDate: "2026-10-02",
+        dueDateRaw: "Friday",
+        dueDateResolution: "resolved",
+        language: "en",
+      }),
+    );
+    await request(app)
+      .post("/api/chat/message")
+      .set("X-Chat-Session-Token", second.sessionToken)
+      .send({ sessionId: second.sessionId, message: "Mango ledger export delay glitch for aurora partners. Neha Singh by Friday.", timezone: "Asia/Kolkata" })
+      .expect(200);
+    mockAI.enqueue(
+      baseAnalysis({
+        intent: "cancel_pending_ticket",
+        status: "needs_clarification",
+        language: "en",
+        userResponse: "cancelled",
+      }),
+    );
+    const cancelled = await request(app)
+      .post("/api/chat/message")
+      .set("X-Chat-Session-Token", second.sessionToken)
+      .send({ sessionId: second.sessionId, message: "forget it", timezone: "Asia/Kolkata" })
+      .expect(200);
+    expect(cancelled.body.data.state).toBe("idle");
+    expect(cancelled.body.data.draft).toBeNull();
+    expect(cancelled.body.data.ticket).toBeNull();
+  });
+});
+
+describe("chat streaming", () => {
+  it("streams the validated reply as SSE with a done payload", async () => {
+    const { sessionId, sessionToken } = await createSession();
+    mockAI.enqueue(
+      baseAnalysis({
+        status: "complete",
+        normalizedEnglishTitle: "Stream check ticket",
+        description: "Created over the stream endpoint.",
+        assigneeCandidate: "Neha Singh",
+        assigneeResolution: "resolved",
+        dueDate: "2026-10-02",
+        dueDateRaw: "Friday",
+        dueDateResolution: "resolved",
+        language: "en",
+      }),
+    );
+    const res = await request(app)
+      .post("/api/chat/stream")
+      .set("X-Chat-Session-Token", sessionToken)
+      .send({ sessionId, message: "Stream check. Neha Singh by Friday.", timezone: "Asia/Kolkata" })
+      .expect(200);
+    expect(res.headers["content-type"]).toContain("text/event-stream");
+    expect(res.text).toContain("event: token");
+    expect(res.text).toContain("event: done");
+    const doneFrame = res.text.split("\n\n").find((frame: string) => frame.includes("event: done"));
+    expect(doneFrame).toBeDefined();
+    const dataLine = (doneFrame ?? "").split("\n").find((line: string) => line.startsWith("data:"));
+    expect(dataLine).toBeDefined();
+    const payload = JSON.parse((dataLine ?? "data: {}").slice("data:".length).trim()) as {
+      ticket: { id: string; ticketNumber: number } | null;
+    };
+    expect(payload.ticket).not.toBeNull();
+    if (payload.ticket) ticketIds.push(payload.ticket.id);
   });
 });
 

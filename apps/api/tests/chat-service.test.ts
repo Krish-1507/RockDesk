@@ -95,7 +95,7 @@ describe("chat state machine", () => {
     ai.enqueue(
       baseAnalysis({
         status: "complete",
-        normalizedEnglishTitle: "Checkout page throwing 500 errors",
+        normalizedEnglishTitle: "Checkout invoice export throwing 500 errors during aurora refunds",
         description: "Some users see 500 errors on checkout.",
         assigneeCandidate: "Priya",
         assigneeResolution: "resolved",
@@ -117,7 +117,7 @@ describe("chat state machine", () => {
     expect(outcome.ticket?.assignee?.name).toBe("Priya Menon");
     expect(outcome.ticket?.dueDate).toBe("2026-10-02");
     expect(outcome.ticket?.priority).toBe("High");
-    expect(outcome.ticket?.title).toBe("Checkout page throwing 500 errors");
+    expect(outcome.ticket?.title).toBe("Checkout invoice export throwing 500 errors during aurora refunds");
     expect(outcome.assistantMessage.content).toContain(`#${outcome.ticket?.ticketNumber}`);
     if (outcome.ticket) createdTicketIds.push(outcome.ticket.id);
     // Original message preserved verbatim
@@ -130,7 +130,7 @@ describe("chat state machine", () => {
     const ai = new MockAIProvider();
     ai.enqueue(
       baseAnalysis({
-        normalizedEnglishTitle: "Login page crashes on Safari",
+        normalizedEnglishTitle: "Login page crashes on Safari for aurora partner accounts nightly",
         description: "Safari users crash on login.",
         dueDate: "2026-10-02",
         dueDateRaw: "Friday",
@@ -152,7 +152,7 @@ describe("chat state machine", () => {
     ai.enqueue(
       baseAnalysis({
         status: "complete",
-        normalizedEnglishTitle: "Login page crashes on Safari",
+        normalizedEnglishTitle: "Login page crashes on Safari for aurora partner accounts nightly",
         description: "Safari users crash on login.",
         assigneeCandidate: "Rahul Sharma",
         assigneeResolution: "resolved",
@@ -177,7 +177,7 @@ describe("chat state machine", () => {
     const ai = new MockAIProvider();
     ai.enqueue(
       baseAnalysis({
-        normalizedEnglishTitle: "Search results are wrong",
+        normalizedEnglishTitle: "Search results are wrong for aurora partner catalog nightly",
         description: "Search returns wrong results.",
         assigneeCandidate: "Rahul",
         assigneeResolution: "ambiguous",
@@ -201,7 +201,7 @@ describe("chat state machine", () => {
     ai.enqueue(
       baseAnalysis({
         status: "complete",
-        normalizedEnglishTitle: "Search results are wrong",
+        normalizedEnglishTitle: "Search results are wrong for aurora partner catalog nightly",
         description: "Search returns wrong results.",
         assigneeCandidate: "Rahul Sharma",
         assigneeResolution: "resolved",
@@ -254,7 +254,7 @@ describe("chat state machine", () => {
     ai.enqueue(
       baseAnalysis({
         status: "complete",
-        normalizedEnglishTitle: "Payment page is very slow",
+        normalizedEnglishTitle: "Wallet top-up is very slow for aurora partner checkouts",
         description: "Payment page loads very slowly.",
         assigneeCandidate: null,
         assigneeResolution: "explicitly_unassigned",
@@ -273,7 +273,7 @@ describe("chat state machine", () => {
     expect(outcome.ticket).not.toBeNull();
     expect(outcome.ticket?.assignee).toBeNull();
     expect(outcome.ticket?.dueDate).toBeNull();
-    expect(outcome.ticket?.title).toBe("Payment page is very slow");
+    expect(outcome.ticket?.title).toBe("Wallet top-up is very slow for aurora partner checkouts");
     if (outcome.ticket) createdTicketIds.push(outcome.ticket.id);
   });
 
@@ -282,7 +282,7 @@ describe("chat state machine", () => {
     const ai = new MockAIProvider();
     ai.enqueue(
       baseAnalysis({
-        normalizedEnglishTitle: "Login page crashes on Safari",
+        normalizedEnglishTitle: "Login page crashes on Safari for aurora midnight partner refunds",
         description: "Crash on Safari login.",
         assigneeCandidate: "Priya",
         assigneeResolution: "resolved",
@@ -304,7 +304,7 @@ describe("chat state machine", () => {
     ai.enqueue(
       baseAnalysis({
         status: "complete",
-        normalizedEnglishTitle: "Login page crashes on Safari",
+        normalizedEnglishTitle: "Login page crashes on Safari for aurora midnight partner refunds",
         description: "Crash on Safari login.",
         assigneeCandidate: "Priya",
         assigneeResolution: "resolved",
@@ -325,7 +325,7 @@ describe("chat state machine", () => {
     ai.enqueue(
       baseAnalysis({
         status: "complete",
-        normalizedEnglishTitle: "Checkout 500 errors",
+        normalizedEnglishTitle: "Aurora checkout invoice export 500 errors nightly",
         description: "Checkout fails.",
         assigneeCandidate: "Amit Kumar",
         assigneeResolution: "resolved",

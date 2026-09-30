@@ -231,6 +231,27 @@ Response for cancellation:
 }
 ```
 
+### POST /api/chat/stream
+
+Same request and auth as `/api/chat/message`, but the reply streams back as server sent events:
+
+```text
+event: token
+data: {"text": "Ticket "}
+
+event: token
+data: {"text": "#128 created. "}
+
+event: done
+data: {"sessionId": "uuid", "assistantMessage": {...}, "state": "idle", "draft": null, "ticket": {...}, "duplicate": null}
+```
+
+The `done` payload has the exact shape of the JSON endpoint. Only already validated text ever streams. If the stream breaks, retry with the same `clientMessageId`; the stored outcome is returned instead of a second ticket.
+
+### Duplicate check
+
+When a message would complete a ticket, the backend compares the title against open tickets (Jaccard similarity over significant title tokens, threshold 0.5). On a match the ticket is held back and the reply asks whether to create it anyway, naming the ticket number. The pending draft carries `duplicateCandidate`, and the response carries a matching `duplicate` object. A yes, no, or create anyway answer resolves it; anything else is treated as new information and re-evaluated.
+
 ---
 
 ## 7. Chat Session API

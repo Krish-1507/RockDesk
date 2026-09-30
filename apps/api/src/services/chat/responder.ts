@@ -135,6 +135,20 @@ function formatDue(iso: string | null): string {
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 }
 
+const ASK_DUPLICATE = (ticketNumber: number, title: string) =>
+  T({
+    en: `This looks similar to #${ticketNumber} (${title}). Should I create it anyway?`,
+    hi: `यह #${ticketNumber} (${title}) जैसा लग रहा है। क्या फिर भी नया टिकट बनाऊं?`,
+    hinglish: `Ye #${ticketNumber} (${title}) jaisa lag raha hai. Phir bhi naya ticket bana doon?`,
+    es: `Esto se parece al #${ticketNumber} (${title}). ¿Lo creo de todos modos?`,
+    ar: `هذا يشبه التذكرة #${ticketNumber} (${title}). هل أنشئها على أي حال؟`,
+    zh: `这看起来和工单 #${ticketNumber}（${title}）很像。要继续创建吗？`,
+  });
+
+export function buildDuplicateQuestion(lang: Lang, ticketNumber: number, title: string): string {
+  return ASK_DUPLICATE(ticketNumber, title)[lang];
+}
+
 export function buildConfirmation(lang: Lang, ticket: TicketRecord): string {
   const assignee = ticket.assignee?.name ?? "Unassigned";
   const core = `#${ticket.ticketNumber} · ${ticket.title} | ${assignee} | ${formatDue(ticket.dueDate)} | ${ticket.priority}`;

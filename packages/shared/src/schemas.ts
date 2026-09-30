@@ -99,6 +99,15 @@ export const PendingTicketSchema = z.object({
       }),
     )
     .default([]),
+  duplicateCandidate: z
+    .object({
+      id: z.string().uuid(),
+      ticketNumber: z.number().int(),
+      title: z.string().max(200),
+    })
+    .nullable()
+    .default(null),
+  duplicateConfirmed: z.boolean().default(false),
   updatedTurn: z.number().int().nonnegative().default(0),
 });
 

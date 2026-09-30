@@ -67,7 +67,7 @@ Checks I run before calling anything done:
 ```bash
 npm run lint          # eslint, all workspaces
 npm run typecheck     # strict tsc, all workspaces
-npm run test:api      # vitest + supertest, 52 tests
+npm run test:api      # vitest + supertest, 61 tests
 ```
 
 ## How it works
@@ -84,6 +84,12 @@ Then the backend takes over and the model is out of the picture:
 - Tickets are created in a single database call that also writes the activity event and clears the draft, so a retry can never create the ticket twice. Every message carries an idempotency id for the same reason.
 
 Replies come back in your language. Titles are stored in English so the admin queue stays consistent, and your original message is always kept next to the ticket.
+
+Replies stream in word by word over server sent events, from the same validated pipeline as the plain JSON endpoint. The model output is checked before anything is shown, so streaming never leaks an unvalidated answer. If the stream breaks halfway, the app retries with the same message id, which returns the stored result instead of making a second ticket.
+
+Before a complete ticket is created, the backend compares its title against open tickets. On a close match it asks first and names the ticket number, with buttons to create anyway or discard. Yes, no, and create anyway phrasing all resolve the question, in every supported language.
+
+The composer also has a microphone button that uses the browsers built in dictation and types what you say. Nothing is uploaded until you press send.
 
 Admin sign in goes through Supabase Auth. The browser holds the JWT, the API checks it on every admin call and loads your role from the profiles table. Anything that is not an admin gets a 403.
 
@@ -129,6 +135,7 @@ Chat routes use the session token in the `X-Chat-Session-Token` header. Admin ro
 |---|---|---|
 | `POST` | `/api/chat/sessions` | Start a session, returns id and token |
 | `POST` | `/api/chat/message` | Send a message, returns the reply plus draft or ticket |
+| `POST` | `/api/chat/stream` | Same as message, but the reply streams as server sent events, then a done frame with the full payload |
 | `GET` | `/api/chat/sessions/by-id?sessionId=` | Full history for a session |
 | `GET` | `/api/tickets` | Search, filters, pagination, newest first |
 | `GET` | `/api/tickets/by-id?id=` | Ticket detail with activity |
@@ -146,7 +153,8 @@ One deviation from the brief to be upfront about: there is no custom `POST /api/
 - Chat needs no login. Only `/admin` does.
 - "Friday" on its own means the coming Friday.
 - "The 4th" means the nearest future 4th and is confirmed before the ticket is created.
-- No duplicate detection, no streaming, no notifications. Those were cut to keep the core solid.
+- A title close to an open ticket triggers a create anyway question first.
+- No notifications. That was cut to keep the core solid.
 
 ## Limitations
 

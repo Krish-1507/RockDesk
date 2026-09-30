@@ -125,6 +125,12 @@ export declare const PendingTicketSchema: z.ZodObject<{
         department: z.ZodNullable<z.ZodString>;
         active: z.ZodBoolean;
     }, z.core.$strip>>>;
+    duplicateCandidate: z.ZodDefault<z.ZodNullable<z.ZodObject<{
+        id: z.ZodString;
+        ticketNumber: z.ZodNumber;
+        title: z.ZodString;
+    }, z.core.$strip>>>;
+    duplicateConfirmed: z.ZodDefault<z.ZodBoolean>;
     updatedTurn: z.ZodDefault<z.ZodNumber>;
 }, z.core.$strip>;
 export type PendingTicket = z.infer<typeof PendingTicketSchema>;

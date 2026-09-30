@@ -5,12 +5,14 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { PaperPlaneRight, Plus, UserCircle, WarningCircle } from "@phosphor-icons/react";
 import AppShell from "@/components/app-shell";
 import TicketCard from "@/components/ticket-card";
+import { VoiceButton } from "@/components/voice-button";
 import { FieldLabel, MetaPill } from "@/components/pills";
 import {
   createChatSession,
   ApiError,
   loadChatHistory,
   sendChatMessage,
+  streamChatMessage,
   type ChatMessageResponse,
   type CreatedTicketView,
   type DraftView,
@@ -22,6 +24,8 @@ interface Message {
   content: string;
   ticket?: CreatedTicketView | null;
   options?: Array<{ id: string; name: string; department: string | null }>;
+  duplicate?: { ticketNumber: number; title: string } | null;
+  streaming?: boolean;
 }
 
 interface SavedSession {
@@ -165,22 +169,18 @@ export default function ChatPage(): React.JSX.Element {
     const userMsg: Message = { id: clientMessageId, role: "user", content: trimmed };
     setMessages((prev) => prev.some((m) => m.id === clientMessageId) ? prev : [...prev, userMsg]);
     setInput("");
-    try {
-      const res: ChatMessageResponse = await sendChatMessage({
-        sessionId,
-        sessionToken,
-        message: trimmed,
-        timezone,
-        clientMessageId,
-      });
+    const streamId = `streaming-${clientMessageId}`;
+    const request = { sessionId, sessionToken, message: trimmed, timezone, clientMessageId };
+    const applyResult = (res: ChatMessageResponse): void => {
       const assistant: Message = {
         id: res.assistantMessage.id,
         role: "assistant",
         content: res.assistantMessage.content,
         ticket: res.ticket,
         options: res.draft?.disambiguationOptions?.length ? res.draft.disambiguationOptions : undefined,
+        duplicate: res.duplicate,
       };
-      setMessages((prev) => [...prev, assistant]);
+      setMessages((prev) => [...prev.filter((m) => m.id !== streamId), assistant]);
       setDraft(res.draft);
       pendingSend.current = null;
       setSessions((prev) => {
@@ -192,6 +192,26 @@ export default function ChatPage(): React.JSX.Element {
         persistSessions(next);
         return next;
       });
+    };
+    try {
+      try {
+        // Prefer streaming; the JSON endpoint below reuses the same message id,
+        // so a fallback can never create a duplicate ticket.
+        let streamedText = "";
+        const res = await streamChatMessage(request, (piece) => {
+          streamedText += piece;
+          const snapshot = streamedText;
+          setMessages((prev) =>
+            prev.some((m) => m.id === streamId)
+              ? prev.map((m) => (m.id === streamId ? { ...m, content: snapshot } : m))
+              : [...prev, { id: streamId, role: "assistant", content: snapshot, streaming: true }],
+          );
+        });
+        applyResult(res);
+      } catch {
+        setMessages((prev) => prev.filter((m) => m.id !== streamId));
+        applyResult(await sendChatMessage(request));
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not send that message.");
       setInput(trimmed);
@@ -366,7 +386,33 @@ export default function ChatPage(): React.JSX.Element {
                     >
                       <div className="max-w-[92%] rounded-[14px] rounded-bl-[6px] border border-[#D8D3C9] bg-[#FBFAF7] px-4 py-2.5 text-[14px] leading-[21px]">
                         {m.content}
+                        {m.streaming && <span className="stream-caret" aria-hidden="true" />}
                       </div>
+                      {m.duplicate && (
+                        <div className="max-w-[92%] rounded-[14px] border border-[#D8D3C9] bg-[#FBFAF7] p-3.5">
+                          <p className="text-[12px] font-semibold text-[#4E4C46]">Possible duplicate</p>
+                          <p className="mt-1 text-[14px] font-semibold leading-[20px]">
+                            <span className="font-mono text-[12px] font-normal text-[#77736A]">#{m.duplicate.ticketNumber}</span>{" "}
+                            {m.duplicate.title}
+                          </p>
+                          <div className="mt-2.5 grid grid-cols-2 gap-2">
+                            <button
+                              onClick={() => void send("Yes, create it anyway")}
+                              disabled={sending}
+                              className="rounded-[10px] bg-[#151512] py-2 text-[13px] font-semibold text-white transition-opacity duration-150 hover:opacity-85 disabled:opacity-50"
+                            >
+                              Create anyway
+                            </button>
+                            <button
+                              onClick={() => void send("forget it")}
+                              disabled={sending}
+                              className="rounded-[10px] border border-[#BDB7AC] bg-white py-2 text-[13px] font-medium text-[#4E4C46] transition-colors hover:border-[#8a867e] disabled:opacity-50"
+                            >
+                              Discard
+                            </button>
+                          </div>
+                        </div>
+                      )}
                       {m.options && m.options.length > 0 && (
                         <div className="grid max-w-[92%] gap-2 sm:grid-cols-2">
                           {m.options.map((o) => (
@@ -411,8 +457,7 @@ export default function ChatPage(): React.JSX.Element {
           {/* Composer */}
           <div className="border-t border-[#D8D3C9] bg-[#FBFAF7] px-6 py-4 md:px-10">
             <div className="mx-auto max-w-2xl">
-              <div className="rounded-[16px] border border-[#D8D3C9] bg-white px-4 py-3 shadow-[0_1px_2px_rgba(21,21,18,0.06)] transition-all duration-200 focus-within:border-[#F0644E] focus-within:shadow-[0_0_0_3px_#FBE1DB,0_12px_28px_-16px_rgba(240,100,78,0.55)]">
-                {draft?.title ? (
+              <div className="rounded-[16px] border border-[#D8D3C9] bg-white px-4 py-3 shadow-[0_1px_2px_rgba(21,21,18,0.06)] transition-all duration-200 focus-within:border-[#F0644E] focus-within:shadow-[0_0_0_3px_#FBE1DB,0_12px_28px_-16px_rgba(240,100,78,0.55)]">                {draft?.title ? (
                   <div className="flex min-w-0 items-center gap-2 border-b border-[#EFECE5] pb-2">
                     <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#F0644E]" aria-hidden="true" />
                     <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-[#4E4C46]">
@@ -427,6 +472,7 @@ export default function ChatPage(): React.JSX.Element {
                   </div>
                 ) : null}
                 <div className="flex items-end gap-2 pt-2">
+                  <VoiceButton value={input} onTranscript={setInput} disabled={sending || booting} />
                   <textarea
                     ref={textareaRef}
                     value={input}
