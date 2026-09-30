@@ -2,6 +2,5 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "npm install",
   "buildCommand": "node ./scripts/vercel-api-build.mjs",
-  "outputDirectory": "api",
-  "rewrites": [{ "source": "/api/(.*)", "destination": "/api/index" }]
+  "outputDirectory": "api"
 }
